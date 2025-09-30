@@ -3,27 +3,27 @@
     <div class="grid">
       <label class="field">
         <span>Código</span>
-        <input v-model.trim="f.codigo" class="input" required placeholder="Ej: 7387">
+        <input v-model.trim="f.codigo" class="input" required  @blur="buscarActivo">
       </label>
       <label class="field">
         <span>Descripción</span>
-        <input v-model="f.descripcion" class="input" required placeholder="Ej: COMPUTADOR PORTATIL">
+        <input v-model="f.descripcion" class="input" required>
       </label>
       <label class="field">
         <span>Marca</span>
-        <input v-model="f.marca" class="input" placeholder="LENOVO">
+        <input v-model="f.marca" class="input">
       </label>
       <label class="field">
         <span>Modelo</span>
-        <input v-model="f.modelo" class="input" placeholder="T490S THINKPAD">
+        <input v-model="f.modelo" class="input">
       </label>
       <label class="field">
         <span>Serie</span>
-        <input v-model="f.serie" class="input" placeholder="MJ-0DAGBD">
+        <input v-model="f.serie" class="input">
       </label>
       <label class="field">
         <span>Vida Útil</span>
-        <input v-model="f.vida_util" class="input" required placeholder="Ej: 60">
+        <input v-model="f.vida_util" class="input" required>
       </label>
       <label class="field">
         <span>Estado</span>
@@ -37,7 +37,7 @@
 
       <label class="field col-2">
         <span>Características</span>
-        <textarea v-model="f.caracteristicas" class="input textarea" rows="3" placeholder="Especificaciones principales…"></textarea>
+        <textarea v-model="f.caracteristicas" class="input textarea" rows="3"></textarea>
       </label>
 
       <label class="field">
@@ -51,7 +51,7 @@
       </label>
       <label class="field">
         <span>Doc. compra</span>
-        <input v-model="f.docto_compra" class="input" placeholder="06-06143-64227">
+        <input v-model="f.docto_compra" class="input">
       </label>
       <label class="field">
         <span>Fecha compra</span>
@@ -59,7 +59,7 @@
       </label>
       <label class="field">
         <span>Costo</span>
-        <input v-model.number="f.costo_compra" type="number" min="0" step="1" class="input" placeholder="2300000">
+        <input v-model.number="f.costo_compra" type="number" min="0" step="1" class="input">
       </label>
 
       <label class="field">
@@ -135,6 +135,7 @@
 import { onMounted, ref, watch } from 'vue'
 import axios from 'axios';
 import apiUrl from "../../config.js";
+import { errorMessages } from 'vue/compiler-sfc';
 
 const proveedor = ref("");
 const proveedorInput = ref("");
@@ -145,6 +146,8 @@ const tercero = ref("");
 const terceroInput = ref("");
 const tercerosFiltrados = ref([]);
 const showTerceroList = ref(false);
+
+const errorMsg = ref('');
 
 const listMacroprocesosEncargados = ref([]);
 const macroproceso_encargado = ref('');
@@ -164,10 +167,10 @@ const emit = defineEmits(['guardar'])
 
 const base = {
   id: '', descripcion: '', codigo: '', estado: '',
-  marca: '', modelo: '', serie: '', ubicacion: '',
-  caracteristicas: '', proveedor: '', proveedor_nombre: '', docto_compra: '', 
-  fecha_compra: '', costo_compra: null, vida_util: null, sede: '',
-  centro: '', macroproceso: '', macroproceso_encargado: '', tercero: null, tercero_nombre: ''
+  marca: '', modelo: '', serie: '', caracteristicas: '', proveedor: '', 
+  proveedor_nombre: '', docto_compra: '', fecha_compra: '', 
+  costo_compra: null, vida_util: null, sede: '', centro: '', macroproceso: '', 
+  macroproceso_encargado: '', tercero: null, tercero_nombre: ''
 }
 const f = ref({ ...base, ...(props.inicial || {}) })
 watch(() => props.inicial, (v) => {
@@ -177,7 +180,7 @@ watch(() => props.inicial, (v) => {
 const msg = ref('')
 
 function enviar() {
-  if (!f.value.id || !f.value.nombre) { msg.value = 'Código y Nombre son obligatorios.'; return }
+  if (!f.value.codigo) { msg.value = 'Código debe ser obligatorio.'; return }
   emit('guardar', { ...f.value })
   msg.value = 'Guardado correctamente.'
 }
@@ -196,9 +199,10 @@ const filtrarProveedores = () => {
 
 // Función para seleccionar un proveedor
 const seleccionarProveedor = (item) => {
-    proveedor.value = item.id;
-    proveedorInput.value = `${item.id} - ${item.nombre}`;
-    showProveedorList.value = false;
+  proveedor.value = item.id;
+  proveedorInput.value = `${item.id} - ${item.nombre}`;
+  f.value.proveedor = item.id;
+  showProveedorList.value = false;
 };
 
 // Función para ocultar la lista de proveedores
@@ -220,9 +224,10 @@ const filtrarTerceros = () => {
 
 // Función para seleccionar un tercero
 const seleccionarTercero = (item) => {
-    tercero.value = item.id;
-    terceroInput.value = `${item.id} - ${item.nombre}`;
-    showTerceroList.value = false;
+  tercero.value = item.id;
+  terceroInput.value = `${item.id} - ${item.nombre}`;
+  f.value.tercero = item.id;
+  showTerceroList.value = false;
 };
 
 // Función para ocultar la lista de terceros
@@ -259,8 +264,30 @@ watch(() => f.value.grupo, async (nuevoGrupo) => {
     }
 });
 
+// Función para buscar un activo
+const buscarActivo = async () => {
+    if (!f.value.codigo) return;
+    try {
+
+        const response = await axios.post(
+            `${apiUrl}/consultar_activo`,
+            { 
+                codigo: f.value.codigo 
+            },
+            {
+                headers: {
+                    Accept: "application/json",
+                }
+            }
+        );
+    } catch (error) {
+        console.error(error);
+        errorMsg.value = error.response.data.message;
+        alert(errorMsg.value)
+    }
+};
+
 onMounted(() => {
-  console.log(props);
   // Proveedor
   const proveedorObj = props.listProveedores.find(item => String(item.id) === String(f.value.proveedor));
   proveedorInput.value = proveedorObj ? `${proveedorObj.id} - ${proveedorObj.nombre}` : ""
@@ -268,6 +295,22 @@ onMounted(() => {
   // Tercero
   const terceroObj = props.listTerceros.find(item => String(item.id) === String(f.value.tercero));
   terceroInput.value = terceroObj ? `${terceroObj.id} - ${terceroObj.nombre}` : "";
+
+  // Macroproceso encargado: cargar lista si grupo tiene valor
+  if (f.value.grupo) {
+    axios.post(
+      `${apiUrl}/params/obtener_macroproceso_x_grupo`,
+      { grupo: f.value.grupo },
+      { headers: { Accept: "application/json" } }
+    ).then(response => {
+      if (response.status === 200) {
+        listMacroprocesosEncargados.value = response.data.data || [];
+      }
+    }).catch(error => {
+      console.error('Error al obtener macroprocesos encargados:', error);
+      listMacroprocesosEncargados.value = [];
+    });
+  }
 });
 
 </script>

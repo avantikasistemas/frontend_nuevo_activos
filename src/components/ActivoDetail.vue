@@ -6,15 +6,12 @@
         <h2 class="mono">{{ activo.id }}</h2>
         <p class="muted">{{ activo.nombre }} — {{ activo.tipo }} · {{ activo.ubicacion }}</p>
       </div>
-      <span class="badge" :data-state="activo.estado">{{ prettyEstado(activo.estado) }}</span>
     </header>
 
     <div class="grid">
       <div class="card">
         <h3>Información</h3>
         <dl class="meta">
-          <dt>Estado</dt><dd>{{ prettyEstado(activo.estado) }}</dd>
-          <dt>Ubicación</dt><dd>{{ activo.ubicacion }}</dd>
           <dt>Proveedor</dt><dd>{{ activo.proveedor || '—' }}</dd>
           <dt>Serie</dt><dd>{{ activo.serie || '—' }}</dd>
           <dt>Vida útil (meses)</dt><dd>{{ activo.vidaUtil || '—' }}</dd>
@@ -41,25 +38,37 @@
 
     <div class="card">
       <h3>Historial de Cambios</h3>
-      <ul class="changes">
-        <li v-for="ev in cambios" :key="ev.id">
-          <div class="when">{{ f(ev.ts) }}</div>
-          <ul class="chglist">
-            <li v-for="(c, i) in ev.cambios" :key="i">
-              <strong>{{ etiqueta(c.campo) }}:</strong>
-              <span class="muted"> {{ pretty(c.antes) }} → </span>
-              <span>{{ pretty(c.despues) }}</span>
-            </li>
-          </ul>
-        </li>
-        <li v-if="cambios.length===0" class="muted">No hay cambios registrados.</li>
-      </ul>
+      <table class="table-changes">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Descripción</th>
+            <th>Usuario</th>
+            <th>Fecha</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr v-for="(hc, index) in historial_cambios" :key="hc.id">
+            <td>{{ index+1 }}</td>
+            <td>{{ hc.descripcion }}</td>
+            <td>{{ hc.usuario }}</td>
+            <td>{{ hc.created_at }}</td>
+          </tr>
+          <tr v-if="historial_cambios.length===0">
+            <td colspan="3" class="muted">No hay cambios registrados.</td>
+          </tr>
+        </tbody>
+      </table>
     </div>
   </section>
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue';
+import axios from 'axios';
+import apiUrl from "../../config.js";
+
+const historial_cambios = ref([]);
 
 const props = defineProps({
   activoId: { type: String, required: true }
@@ -83,7 +92,6 @@ const cambios = computed(() => allChanges.value
   .sort((a, b) => new Date(b.ts) - new Date(a.ts))
 )
 
-function prettyEstado(e) { return e === 'FUERA' ? 'Fuera de servicio' : e === 'MANTENIMIENTO' ? 'En mantenimiento' : 'Funcionando' }
 function f(d) { return new Date(d).toLocaleString() }
 function pretty(v) { return v === null || v === undefined || v === '' ? '—' : v }
 function etiqueta(k) {
@@ -95,9 +103,62 @@ function etiqueta(k) {
   }
   return map[k] || k
 }
+
+// Función para consultar el historial de un activo
+const consultarHistorial = async () => {
+
+    try {
+        const response = await axios.post(
+            `${apiUrl}/consultar_historial`,
+            { 
+                activo_id: props.activoId
+            },
+            {
+                headers: {
+                    Accept: "application/json",
+                }
+            }
+        );
+
+        if (response.status === 200) {
+            historial_cambios.value = response.data.data;
+        }
+    } catch (error) {
+        console.error(error);
+        historial_cambios.value = [];
+    }
+};
+
+onMounted(() => {
+  consultarHistorial();
+});
+
 </script>
 
 <style scoped>
+/* Estilos blanco y negro para la tabla de historial de cambios */
+.table-changes {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 10px;
+  background: #fff;
+}
+.table-changes th, .table-changes td {
+  border: 1px solid #222;
+  padding: 8px 10px;
+  text-align: left;
+}
+.table-changes th {
+  background: #222;
+  color: #fff;
+  font-weight: 600;
+}
+.table-changes tr:nth-child(even) {
+  background: #f4f4f4;
+}
+.table-changes tr:nth-child(odd) {
+  background: #fff;
+}
 .detail{ padding:24px; color:var(--ink) }
 .top{ display:grid; grid-template-columns: 120px 1fr auto; align-items:center; gap:12px; margin-bottom:14px }
 .muted{ color:var(--muted) } .small{ font-size:12px }

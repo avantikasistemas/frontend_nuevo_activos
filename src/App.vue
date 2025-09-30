@@ -1,6 +1,6 @@
 <template>
-  <div class="app">
-    <aside class="sidebar">
+  <div :class="['app', { 'app-publica': esPublica }]">
+    <aside class="sidebar" v-if="!esPublica">
       <div class="brand">
         <div class="logo">A</div>
         <div>
@@ -19,7 +19,7 @@
     </aside>
 
     <main class="main">
-      <header class="topbar">
+      <header class="topbar" v-if="!esPublica">
         <div class="left">
           <h2 class="page">{{ pageTitle }}</h2>
         </div>
@@ -48,8 +48,9 @@ export default {
       ot: 'Detalle de Orden'
     }
     const pageTitle = computed(()=> titles[route.name] || 'Gestión')
-
-    return { compact, pageTitle }
+    // Ocultar aside/topbar si el path contiene la ruta externa
+    const esPublica = computed(() => route.path.startsWith('/activo/firmar/tercero'))
+    return { compact, pageTitle, esPublica }
   }
 }
 </script>
@@ -78,6 +79,12 @@ body{
 
 /* layout */
 .app{ display:grid; grid-template-columns: 260px 1fr; height:100vh }
+.app-publica {
+  display: block;
+  height: 100vh;
+  min-width: 100vw;
+  background: var(--bg);
+}
 .sidebar{
   border-right:1px solid var(--line);
   background:var(--card); display:flex; flex-direction:column; padding:14px

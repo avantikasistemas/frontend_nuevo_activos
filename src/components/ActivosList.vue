@@ -63,10 +63,14 @@
           <span v-else>{{ a.macroproceso_encargado_nombre || '—' }}</span>
         </div>
         <div class="row__actions" @click.stop>
-          <!-- <button class="icon" title="Cambios" @click="$emit('verHoja', a)">📑</button>
-          <button class="icon" title="Editar" @click="editar(a)">✏️</button> -->
           <button class="icon danger" title="Eliminar" @click="handleRetirar(a)">🗑️</button>
-          <button class="icon" title="Activos">&#128279;</button>
+          <button 
+            class="icon" 
+            title="Activos"
+            @click="abrirTerceroEnNuevaPestana(a.tercero)"
+          >
+            &#128279;
+          </button>
         </div>
       </div>
       <div v-if="pageItems.length===0" class="empty">Sin resultados.</div>
@@ -88,7 +92,6 @@
         <button class="icon" @click="info=null">✖</button>
       </header>
       <div class="drawer__body">
-        <div class="foto" v-if="info.foto"><img :src="info.foto" alt="foto"/></div>
         <dl class="meta">
           <dt>Código</dt><dd class="mono">{{ info.codigo }}</dd>
           <dt>Descripción</dt><dd>{{ info.descripcion || '—' }}</dd>
@@ -96,7 +99,7 @@
           <dt>Serie</dt><dd>{{ info.serie || '—' }}</dd>
           <dt>Estado</dt><dd>{{ info.estado_descripcion }}</dd>
           <dt>Tercero</dt><dd>{{ info.tercero_nombre || '—' }}</dd>
-          <dt>Doc. compra</dt><dd>{{ info.docto_compra || '—' }} ({{ info.fecha_compra ? new Date(info.fecha_compra).toLocaleDateString() : '—' }})</dd>
+          <dt>Doc. compra</dt><dd>{{ info.docto_compra || '—' }} ({{ info.fecha_compra ? info.fecha_compra : '—' }})</dd>
           <dt>Costo</dt><dd>{{ info.costo_compra !== undefined && info.costo_compra !== null ? currency(info.costo_compra) : '—' }}</dd>
           <dt>Vida útil</dt><dd>{{ info.vida_util || '—' }} meses</dd>
           <dt>Macroproceso Responsable</dt><dd>{{ info.macroproceso_encargado_nombre || '—' }}</dd>
@@ -141,10 +144,13 @@
 </template>
 
 <script setup>
-import { ref, computed, watch, onMounted } from 'vue'
-import ActivoForm from './ActivoForm.vue'
+import { ref, computed, watch, onMounted } from 'vue';
+import { useRouter } from 'vue-router';
+import ActivoForm from './ActivoForm.vue';
 import axios from 'axios';
 import apiUrl from "../../config.js";
+
+const router = useRouter();
 
 const listEstados = ref([]);
 const listCentros = ref([]);
@@ -163,6 +169,8 @@ const nuevos_activos = ref([]);
 const loading = ref(false);
 const loading_msg = ref('');
 const errorMsg = ref('');
+
+const api_ruta = ref('');
 
 const q = ref('')
 const fTipo = ref('')
@@ -359,6 +367,14 @@ const obtenerTerceros = async () => {
     }
 };
 
+// Función para abrir la página del tercero en una nueva pestaña
+const abrirTerceroEnNuevaPestana = (tercero) => {
+    if (!tercero) return;
+    // Construye la ruta usando el nombre o path definido en el router
+    const routeData = router.resolve({ name: 'Activotercero', params: { tercero: tercero } });
+    window.open(routeData.href, '_blank');
+};
+
 onMounted(() => {
   consultarActivos();
   obtenerEstados();
@@ -370,10 +386,60 @@ onMounted(() => {
   obtenerTerceros();
 });
 
-function guardar(activo) {
-  // Aquí deberías implementar la lógica para guardar el activo en el backend si es necesario
-  cerrar()
-}
+// Función para guardar o actualizar un activo (recibe el objeto desde ActivoForm)
+const guardar = async (activo) => {
+  console.log(activo);
+  if (!activo || !activo.codigo) return;
+  try {
+    api_ruta.value = editando.value ? 'actualizar_activo' : 'guardar_activo';
+    const response = await axios.post(
+      `${apiUrl}/${api_ruta.value}`,
+      { 
+        codigo: activo.codigo,
+        descripcion: activo.descripcion,
+        modelo: activo.modelo,
+        serie: activo.serie,
+        marca: activo.marca,
+        estado: activo.estado,
+        vida_util: activo.vida_util,
+        proveedor: activo.proveedor,
+        tercero: activo.tercero,
+        docto_compra: activo.docto_compra,
+        fecha_compra: activo.fecha_compra,
+        caracteristicas: activo.caracteristicas,
+        sede: activo.sede,
+        centro: activo.centro,
+        grupo: activo.grupo,
+        macroproceso_encargado: activo.macroproceso_encargado,
+        macroproceso: activo.macroproceso,
+        costo_compra: activo.costo_compra,
+      },
+      {
+        headers: {
+          Accept: "application/json",
+        }
+      }
+    );
+    if (response.status === 200) {
+      alert(response.data.message);
+      await consultarActivos();
+      // Actualizar el panel aside si está abierto y corresponde al activo editado
+      if (info.value && info.value.codigo === activo.codigo) {
+        // Buscar el activo actualizado en la lista
+        const actualizado = nuevos_activos.value.find(a => a.codigo === activo.codigo);
+        if (actualizado) info.value = { ...actualizado };
+      }
+      // Actualizar el formulario si estaba editando
+      if (editando.value && editando.value.codigo === activo.codigo) {
+        editando.value = { ...activo };
+      }
+      cerrar();
+    }
+  } catch (error) {
+    console.error(error);
+    alert(error.response?.data?.message || 'Error al guardar el activo');
+  }
+};
 
 // Función para manejar la acción de retirar
 const handleRetirar = (a) => {
@@ -381,6 +447,7 @@ const handleRetirar = (a) => {
     if (c) { retirarActivo(a); }
 };
 
+// Función para retirar un activo
 const retirarActivo = async (a) => {
   if (!a.codigo) return;
   try {
