@@ -3,31 +3,12 @@
     <div class="grid">
       <label class="field">
         <span>Código</span>
-        <input v-model.trim="f.id" class="input" required placeholder="Ej: 7387">
+        <input v-model.trim="f.codigo" class="input" required placeholder="Ej: 7387">
       </label>
       <label class="field">
-        <span>Nombre</span>
-        <input v-model="f.nombre" class="input" required placeholder="Ej: COMPUTADOR PORTATIL">
+        <span>Descripción</span>
+        <input v-model="f.descripcion" class="input" required placeholder="Ej: COMPUTADOR PORTATIL">
       </label>
-      <label class="field">
-        <span>Tipo</span>
-        <select v-model="f.tipo" class="input">
-          <option>Computo</option>
-          <option>Telecom</option>
-          <option>Oficina</option>
-          <option>Servicio Técnico</option>
-          <option>Metrología</option>
-        </select>
-      </label>
-      <label class="field">
-        <span>Estado</span>
-        <select v-model="f.estado" class="input">
-          <option value="FUNCIONANDO">Funcionando</option>
-          <option value="MANTENIMIENTO">En mantenimiento</option>
-          <option value="FUERA">Fuera de servicio</option>
-        </select>
-      </label>
-
       <label class="field">
         <span>Marca</span>
         <input v-model="f.marca" class="input" placeholder="LENOVO">
@@ -41,60 +22,106 @@
         <input v-model="f.serie" class="input" placeholder="MJ-0DAGBD">
       </label>
       <label class="field">
-        <span>Ubicación</span>
-        <input v-model="f.ubicacion" class="input" placeholder="Sede Barranquilla">
+        <span>Vida Útil</span>
+        <input v-model="f.vida_util" class="input" required placeholder="Ej: 60">
+      </label>
+      <label class="field">
+        <span>Estado</span>
+        <select v-model="f.estado" class="input">
+          <option value="">Seleccione</option>
+          <option v-for="est in props.listEstados" :key="est.id" :value="est.id">
+              {{ est.id }} - {{ est.nombre }}
+          </option>
+        </select>
       </label>
 
       <label class="field col-2">
-        <span>Descripción / Características</span>
-        <textarea v-model="f.descripcion" class="input textarea" rows="3" placeholder="Especificaciones principales…"></textarea>
+        <span>Características</span>
+        <textarea v-model="f.caracteristicas" class="input textarea" rows="3" placeholder="Especificaciones principales…"></textarea>
       </label>
 
       <label class="field">
-        <span>Proveedor</span>
-        <input v-model="f.proveedor" class="input" placeholder="444444669 - EBAY">
+          <span>Proveedor</span>
+          <input type="text" class="input" v-model="proveedorInput" @input="filtrarProveedores" @focus="showProveedorList = true" @blur="ocultarProveedorList" autocomplete="off"/>
+          <ul v-if="showProveedorList && proveedoresFiltrados.length" class="list-group position-absolute w-100" style="z-index:10; max-height:180px; overflow-y:auto;">
+              <li v-for="item in proveedoresFiltrados" :key="item.id" class="list-group-item list-group-item-action" @mousedown.prevent="seleccionarProveedor(item)">
+                  {{ item.id }} - {{ item.nombre }}
+              </li>
+          </ul>
       </label>
       <label class="field">
         <span>Doc. compra</span>
-        <input v-model="f.docCompra" class="input" placeholder="06-06143-64227">
+        <input v-model="f.docto_compra" class="input" placeholder="06-06143-64227">
       </label>
       <label class="field">
         <span>Fecha compra</span>
-        <input v-model="f.fechaCompra" type="date" class="input">
+        <input v-model="f.fecha_compra" type="date" class="input">
       </label>
       <label class="field">
         <span>Costo</span>
-        <input v-model.number="f.costo" type="number" min="0" step="1" class="input" placeholder="2300000">
+        <input v-model.number="f.costo_compra" type="number" min="0" step="1" class="input" placeholder="2300000">
       </label>
 
       <label class="field">
-        <span>Vida útil (meses)</span>
-        <input v-model.number="f.vidaUtil" type="number" min="0" step="1" class="input" placeholder="60">
+          <span>Tercero</span>
+          <input type="text" class="input" v-model="terceroInput" @input="filtrarTerceros" @focus="showTerceroList = true" @blur="ocultarTerceroList" autocomplete="off"/>
+          <ul v-if="showTerceroList && tercerosFiltrados.length" class="list-group position-absolute w-100" style="z-index:10; max-height:180px; overflow-y:auto;">
+              <li v-for="item in tercerosFiltrados" :key="item.id" class="list-group-item list-group-item-action" @mousedown.prevent="seleccionarTercero(item)">
+                  {{ item.id }} - {{ item.nombre }}
+              </li>
+          </ul>
       </label>
+
+      <label class="field">
+        <span>Macroproceso</span>
+        <select v-model="f.macroproceso" class="input">
+          <option value="">Seleccione</option>
+          <option v-for="mac in props.listMacroprocesos" :key="mac.id" :value="mac.id">
+              {{ mac.id }} - {{ mac.nombre }}
+          </option>
+        </select>
+      </label>
+
+      <label class="field">
+        <span>Sede</span>
+        <select v-model="f.sede" class="input">
+          <option value="">Seleccione</option>
+          <option v-for="sed in props.listSedes" :key="sed.id" :value="sed.id">
+              {{ sed.id }} - {{ sed.nombre }}
+          </option>
+        </select>
+      </label>
+
       <label class="field">
         <span>Centro de costo</span>
-        <input v-model="f.centroCosto" class="input" placeholder="200 - DIRECCIONAMIENTO ESTRATEGICO">
+        <select v-model="f.centro" class="input">
+          <option value="">Seleccione</option>
+          <option v-for="cent in props.listCentros" :key="cent.id" :value="cent.id">
+              {{ cent.id }} - {{ cent.nombre }}
+          </option>
+        </select>
       </label>
 
-      <!-- Responsable / Tercero -->
       <label class="field">
-        <span>Responsable (usuario)</span>
-        <input v-model="f.responsable" class="input" placeholder="Nombre usuario responsable">
+        <span>Grupo Contable</span>
+        <select v-model="f.grupo" class="input">
+          <option value="">Seleccione</option>
+          <option v-for="grp in props.listGrupos" :key="grp.id" :value="grp.id">
+              {{ grp.id }} - {{ grp.nombre }}
+          </option>
+        </select>
       </label>
-      <div class="field">
-        <span>Tercero asignado</span>
-        <TerceroLookup :valor="f.tercero" @select="t => f.tercero = t" />
-      </div>
 
-      <!-- Foto -->
-      <div class="field col-2">
-        <span>Imagen del activo</span>
-        <div class="foto">
-          <div class="foto__preview" v-if="f.foto"><img :src="f.foto" alt="foto"/></div>
-          <input type="file" accept="image/*" @change="cargarImagen" />
-          <button class="btn ghost" v-if="f.foto" @click.prevent="f.foto=''">Quitar imagen</button>
-        </div>
-      </div>
+      <label class="field">
+        <span>Macroproceso Encargado</span>
+        <select v-model="f.macroproceso_encargado" class="input">
+          <option value="">Seleccione</option>
+          <option v-for="mac in listMacroprocesosEncargados" :key="mac.id" :value="mac.id">
+              {{ mac.id }} - {{ mac.nombre }}
+          </option>
+        </select>
+      </label>
+
     </div>
 
     <footer class="actions">
@@ -105,46 +132,144 @@
 </template>
 
 <script setup>
-import { ref, watch } from 'vue'
-import TerceroLookup from './TerceroLookup.vue'
+import { onMounted, ref, watch } from 'vue'
+import axios from 'axios';
+import apiUrl from "../../config.js";
+
+const proveedor = ref("");
+const proveedorInput = ref("");
+const proveedoresFiltrados = ref([]);
+const showProveedorList = ref(false);
+
+const tercero = ref("");
+const terceroInput = ref("");
+const tercerosFiltrados = ref([]);
+const showTerceroList = ref(false);
+
+const listMacroprocesosEncargados = ref([]);
+const macroproceso_encargado = ref('');
 
 const props = defineProps({
-  inicial: { type: Object, default: null }
+  inicial: { type: Object, default: null },
+  listEstados: { type: Array, default: [] },
+  listCentros: { type: Array, default: [] },
+  listGrupos: { type: Array, default: [] },
+  listProveedores: { type: Array, default: [] },
+  listTerceros: { type: Array, default: [] },
+  listMacroprocesos: { type: Array, default: [] },
+  listSedes: { type: Array, default: [] },
 })
+
 const emit = defineEmits(['guardar'])
 
 const base = {
-  id: '', nombre: '', tipo: 'Computo', estado: 'FUNCIONANDO',
+  id: '', descripcion: '', codigo: '', estado: '',
   marca: '', modelo: '', serie: '', ubicacion: '',
-  descripcion: '', proveedor: '', docCompra: '', fechaCompra: '', costo: null,
-  vidaUtil: null, centroCosto: '', responsable: '',
-  tercero: null, foto: ''
+  caracteristicas: '', proveedor: '', proveedor_nombre: '', docto_compra: '', 
+  fecha_compra: '', costo_compra: null, vida_util: null, sede: '',
+  centro: '', macroproceso: '', macroproceso_encargado: '', tercero: null, tercero_nombre: ''
 }
 const f = ref({ ...base, ...(props.inicial || {}) })
-watch(() => props.inicial, v => f.value = { ...base, ...(v || {}) })
+watch(() => props.inicial, (v) => {
+  f.value = { ...base, ...(v || {}) }
+})
 
 const msg = ref('')
 
-async function cargarImagen(ev) {
-  const file = ev.target.files?.[0]
-  if (!file) return
-  const b64 = await toBase64(file)
-  f.value.foto = b64
-}
 function enviar() {
   if (!f.value.id || !f.value.nombre) { msg.value = 'Código y Nombre son obligatorios.'; return }
   emit('guardar', { ...f.value })
   msg.value = 'Guardado correctamente.'
 }
 
-function toBase64(file) {
-  return new Promise((res, rej) => {
-    const r = new FileReader()
-    r.onload = () => res(r.result)
-    r.onerror = rej
-    r.readAsDataURL(file)
-  })
-}
+// Función para filtrar proveedores
+const filtrarProveedores = () => {
+    const texto = proveedorInput.value.trim().toLowerCase();
+    if (!texto) {
+        proveedoresFiltrados.value = props.listProveedores.slice(0, 20);
+        return;
+    }
+    proveedoresFiltrados.value = props.listProveedores.filter(item =>
+        item.nombre.toLowerCase().includes(texto) || String(item.id).toLowerCase().includes(texto)
+    ).slice(0, 20);
+};
+
+// Función para seleccionar un proveedor
+const seleccionarProveedor = (item) => {
+    proveedor.value = item.id;
+    proveedorInput.value = `${item.id} - ${item.nombre}`;
+    showProveedorList.value = false;
+};
+
+// Función para ocultar la lista de proveedores
+const ocultarProveedorList = () => {
+    setTimeout(() => { showProveedorList.value = false; }, 150);
+};
+
+// Función para filtrar terceros
+const filtrarTerceros = () => {
+    const texto = terceroInput.value.trim().toLowerCase();
+    if (!texto) {
+        tercerosFiltrados.value = props.listTerceros.slice(0, 20);
+        return;
+    }
+    tercerosFiltrados.value = props.listTerceros.filter(item =>
+        item.nombre.toLowerCase().includes(texto) || String(item.id).toLowerCase().includes(texto)
+    ).slice(0, 20);
+};
+
+// Función para seleccionar un tercero
+const seleccionarTercero = (item) => {
+    tercero.value = item.id;
+    terceroInput.value = `${item.id} - ${item.nombre}`;
+    showTerceroList.value = false;
+};
+
+// Función para ocultar la lista de terceros
+const ocultarTerceroList = () => {
+    setTimeout(() => { showTerceroList.value = false; }, 150);
+};
+
+// Watcher para cargar macroprocesos encargados según grupo contable
+watch(() => f.value.grupo, async (nuevoGrupo) => {
+    if (!nuevoGrupo) {
+        listMacroprocesosEncargados.value = [];
+        return;
+    }
+    try {
+        const response = await axios.post(
+            `${apiUrl}/params/obtener_macroproceso_x_grupo`,
+            { 
+                grupo: nuevoGrupo 
+            },
+            {
+                headers: {
+                    Accept: "application/json",
+                }
+            }
+        );
+        if (response.status === 200) {
+            listMacroprocesosEncargados.value = response.data.data || [];
+            // macroproceso_encargado.value = "";
+        }
+    } catch (error) {
+        console.error('Error al obtener macroprocesos encargados:', error);
+        listMacroprocesosEncargados.value = [];
+        macroproceso_encargado.value = "";
+    }
+});
+
+onMounted(() => {
+  console.log(props);
+  // Proveedor
+  const proveedorObj = props.listProveedores.find(item => String(item.id) === String(f.value.proveedor));
+  proveedorInput.value = proveedorObj ? `${proveedorObj.id} - ${proveedorObj.nombre}` : ""
+
+  // Tercero
+  const terceroObj = props.listTerceros.find(item => String(item.id) === String(f.value.tercero));
+  terceroInput.value = terceroObj ? `${terceroObj.id} - ${terceroObj.nombre}` : "";
+});
+
 </script>
 
 <style scoped>
@@ -155,7 +280,7 @@ function toBase64(file) {
 @media (max-width:700px){ .grid{ grid-template-columns: 1fr } }
 .field{ display:flex; flex-direction:column; gap:6px }
 .col-2{ grid-column: span 2 }
-.input{ background:#0f1520; border:1px solid var(--line); color:var(--ink); padding:10px 12px; border-radius:10px }
+.input{ background:#eff1f4b7; border:1px solid var(--line); color:var(--ink); padding:10px 12px; border-radius:10px; width: 100%; }
 .textarea{ resize:vertical }
 .foto{ display:flex; align-items:center; gap:12px; flex-wrap:wrap }
 .foto__preview img{ width:220px; height:140px; object-fit:cover; border-radius:10px; border:1px solid var(--line) }
