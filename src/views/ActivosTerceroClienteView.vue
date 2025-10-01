@@ -305,8 +305,8 @@ onMounted(() => {
 }
 
 .tabla-activos-tercero th {
-    background: linear-gradient(90deg, #000000 0%, #5e5858 100%);
-    color: #fff;
+    background: #e2eaf1;
+    color: black;
     font-weight: 600;
     text-align: center;
     padding: 12px 8px;
@@ -384,11 +384,11 @@ onMounted(() => {
     display: inline-block;
 }
 .btn-rojo {
-    background: #d32f2f;
+    background: #49aa92;
     color: #fff;
 }
 .btn-rojo:hover {
-    background: #b71c1c;
+    background: #29856e;
 }
 .btn-verde {
     background: #1976d2;

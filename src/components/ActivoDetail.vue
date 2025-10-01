@@ -147,18 +147,20 @@ onMounted(() => {
   border: 1px solid #222;
   padding: 8px 10px;
   text-align: left;
+  
 }
 .table-changes th {
-  background: #222;
-  color: #fff;
+  background: #f8fafc;
+  color: #334155;
   font-weight: 600;
 }
-.table-changes tr:nth-child(even) {
-  background: #f4f4f4;
+.table-changes tr:hover {
+  background: #f7fbff;
 }
-.table-changes tr:nth-child(odd) {
-  background: #fff;
+.table-changes td {
+  font-size: 12px;
 }
+
 .detail{ padding:24px; color:var(--ink) }
 .top{ display:grid; grid-template-columns: 120px 1fr auto; align-items:center; gap:12px; margin-bottom:14px }
 .muted{ color:var(--muted) } .small{ font-size:12px }

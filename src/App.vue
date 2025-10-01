@@ -11,7 +11,7 @@
       <nav class="nav">
         <RouterLink to="/" exact-active-class="active">🏠 Dashboard</RouterLink>
         <RouterLink to="/activos" exact-active-class="active">🖥️ Activos</RouterLink>
-        <RouterLink to="/mantenimientos" exact-active-class="active">🛠️ Órdenes</RouterLink>
+        <RouterLink to="/mantenimientos" exact-active-class="active">🛠️ Órdenes de Trabajo</RouterLink>
       </nav>
       <div class="foot">
         <span class="muted">v1.0 • Local</span>
