@@ -2,21 +2,17 @@
   <section class="detail">
     <header class="top">
       <button class="btn" @click="$emit('volver')">← Volver</button>
-      <div>
-        <h2 class="mono">{{ activo.id }}</h2>
-        <p class="muted">{{ activo.nombre }} — {{ activo.tipo }} · {{ activo.ubicacion }}</p>
-      </div>
     </header>
 
     <div class="grid">
       <div class="card">
         <h3>Información</h3>
         <dl class="meta">
-          <dt>Proveedor</dt><dd>{{ activo.proveedor || '—' }}</dd>
-          <dt>Serie</dt><dd>{{ activo.serie || '—' }}</dd>
-          <dt>Vida útil (meses)</dt><dd>{{ activo.vidaUtil || '—' }}</dd>
-          <dt>Tercero asignado</dt><dd>{{ activo.tercero?.id || '—' }} — {{ activo.tercero?.nombreCompleto || '—' }}</dd>
-          <dt>Responsable</dt><dd>{{ activo.responsable || '—' }}</dd>
+          <dt>Activo</dt><dd>{{ informacion_principal.descripcion || '—' }}</dd>
+          <dt>Proveedor</dt><dd>{{ informacion_principal.proveedor || '—' }}</dd>
+          <dt>Serie</dt><dd>{{ informacion_principal.serie || '—' }}</dd>
+          <dt>Vida útil (meses)</dt><dd>{{ informacion_principal.vida_util || '—' }}</dd>
+          <dt>Responsable</dt><dd>{{ informacion_principal.responsable || '—' }}</dd>
         </dl>
       </div>
 
@@ -55,7 +51,7 @@
             <td>{{ hc.created_at }}</td>
           </tr>
           <tr v-if="historial_cambios.length===0">
-            <td colspan="3" class="muted">No hay cambios registrados.</td>
+            <td colspan="4" class="muted">No hay cambios registrados.</td>
           </tr>
         </tbody>
       </table>
@@ -68,6 +64,7 @@ import { ref, computed, onMounted } from 'vue';
 import axios from 'axios';
 import apiUrl from "../../config.js";
 
+const informacion_principal = ref({});
 const historial_cambios = ref([]);
 
 const props = defineProps({
@@ -86,23 +83,7 @@ const historialMant = computed(() => mant.value
   .sort((a, b) => new Date(b.fecha) - new Date(a.fecha))
 )
 
-const allChanges = ref(load('cambiosActivos', []))
-const cambios = computed(() => allChanges.value
-  .filter(ev => ev.activoId === props.activoId)
-  .sort((a, b) => new Date(b.ts) - new Date(a.ts))
-)
-
 function f(d) { return new Date(d).toLocaleString() }
-function pretty(v) { return v === null || v === undefined || v === '' ? '—' : v }
-function etiqueta(k) {
-  const map = {
-    CREACION: 'Creación', NOMBRE: 'Nombre', TIPO: 'Tipo', ESTADO: 'Estado', UBICACION: 'Ubicación',
-    RESPONSABLE: 'Responsable', CENTROCOSTO: 'Centro de costo', PROVEEDOR: 'Proveedor',
-    DOCCOMPRA: 'Documento de compra', FECHACOMPRA: 'Fecha de compra',
-    MARCA: 'Marca', MODELO: 'Modelo', SERIE: 'Serie', TERCERO: 'Tercero asignado'
-  }
-  return map[k] || k
-}
 
 // Función para consultar el historial de un activo
 const consultarHistorial = async () => {
@@ -121,7 +102,8 @@ const consultarHistorial = async () => {
         );
 
         if (response.status === 200) {
-            historial_cambios.value = response.data.data;
+            informacion_principal.value = response.data.data.info;
+            historial_cambios.value = response.data.data.historial;
         }
     } catch (error) {
         console.error(error);

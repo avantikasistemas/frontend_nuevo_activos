@@ -2,34 +2,34 @@
   <section class="wrap">
     <header class="top">
       <button class="btn" @click="$emit('volver')">← Volver</button>
-      <h2>Orden #{{ ot.id }}</h2>
-      <span class="chip" :data-state="ot.estado">{{ ot.estado }}</span>
+      <h2>Orden #{{ data_ot.id }}</h2>
+      <span class="chip" :data-state="data_ot.estado_ot">{{ data_ot.estado_ot_nombre }}</span>
     </header>
 
     <div class="grid">
       <div class="card">
         <h3>Datos</h3>
         <dl class="meta">
-          <dt>Activo</dt><dd>{{ ot.activoId }} — {{ ot.activoNombre }}</dd>
-          <dt>Tipo</dt><dd>{{ ot.tipo }}</dd>
-          <dt>Programada</dt><dd>{{ f(ot.fechaProgramada) }}</dd>
-          <dt>Técnico</dt><dd>{{ ot.tecnico || '—' }}</dd>
-          <dt>Descripción</dt><dd>{{ ot.descripcion || '—' }}</dd>
+          <dt>Activo</dt><dd>{{ data_ot.activo_id }} — {{ data_ot.descripcion_activo }}</dd>
+          <dt>Tipo</dt><dd>{{ data_ot.tipo_mantenimiento_nombre }}</dd>
+          <dt>Programada</dt><dd>{{ (data_ot.fecha_programacion) }}</dd>
+          <dt>Técnico</dt><dd>{{ data_ot.tecnico || '—' }}</dd>
+          <dt>Descripción</dt><dd>{{ data_ot.descripcion || '—' }}</dd>
         </dl>
         <div class="rowbtns">
           <select v-model="estado" class="input">
-            <option>Pendiente</option>
-            <option>En progreso</option>
-            <option>Completado</option>
-            <option>Cancelado</option>
+            <option :value="null">Seleccione Estado...</option>
+            <option v-for="est in listEstadosOt" :key="est.id" :value="est.id">
+              {{ est.id }} - {{ est.nombre }}
+            </option>
           </select>
-          <button class="btn" @click="guardarEstado">Actualizar estado</button>
+          <button class="btn" @click="actualizarEstadoOt">Actualizar estado</button>
         </div>
       </div>
 
       <div class="card">
         <h3>Registrar actividad</h3>
-        <form class="form" @submit.prevent="agregarLog">
+        <form class="form" @submit.prevent="agregarActividad">
           <input v-model="logText" class="input" placeholder="¿Qué se realizó?" />
           <input v-model="logTec" class="input" placeholder="Técnico (si aplica)" />
           <button class="btn">Añadir</button>
@@ -37,121 +37,157 @@
 
         <h4>Historial</h4>
         <ul class="logs">
-          <li v-for="(l,idx) in ot.logs" :key="idx">
-            <div class="when">{{ f(l.ts) }}</div>
-            <div class="what">{{ l.nota }}</div>
+          <li v-for="l in listActividades" :key="l.id">
+            <div class="when">{{ (l.created_at) }}</div>
+            <div class="what">{{ l.descripcion }}</div>
             <div class="who muted">{{ l.tecnico || '—' }}</div>
           </li>
-          <li v-if="ot.logs.length===0" class="muted">Sin actividades aún.</li>
+          <li v-if="listActividades.length===0" class="muted">Sin actividades aún.</li>
         </ul>
       </div>
     </div>
 
-    <div class="card">
+    <!-- <div class="card">
       <h3>Firma/Validación</h3>
       <div class="sign">
         <input v-model="firma" class="input" placeholder="Nombre de conformidad" />
         <button class="btn" @click="firmar">Firmar</button>
         <span v-if="ot.firmadoPor" class="muted">Firmado por: <strong>{{ ot.firmadoPor }}</strong> el {{ f(ot.fechaCierre || new Date()) }}</span>
       </div>
-    </div>
+    </div> -->
   </section>
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, onMounted } from 'vue';
+import axios from 'axios';
+import apiUrl from "../../config.js";
+
+const data_ot = ref([]);
+const listEstadosOt = ref([]);
+const listActividades = ref([]);
+const estado = ref(null);
+const errorMsg = ref('');
+
+const logText = ref('');
+const logTec = ref('');
+const firma = ref('');
 
 const props = defineProps({
   id: { type: Number, required: true }
 })
 const emit = defineEmits(['volver'])
 
-function load(k, f) {
-  try { return JSON.parse(localStorage.getItem(k)) ?? f } catch { return f }
-}
-function save(k, v) { localStorage.setItem(k, JSON.stringify(v)) }
+// Funcion para consultar los datos de la ot
+const consultarOt = async () => {
+  try {
+        const response = await axios.post(
+            `${apiUrl}/consultar_data_ot`, 
+            { 
+              ot_id: props.id 
+            },
+            {
+                headers: {
+                    Accept: "application/json",
+                }
+            }
+        );
 
-const ordenes = ref(load('ordenes', []))
-const idx = ref(ordenes.value.findIndex(o => o.id === props.id))
-const ot = ref(idx.value > -1 ? ordenes.value[idx.value] : { id: props.id, logs: [], estado: 'Pendiente' })
-
-const estado = ref(ot.value.estado)
-const logText = ref('')
-const logTec = ref('')
-const firma = ref('')
-
-function persist() {
-  if (idx.value > -1) {
-    ordenes.value[idx.value] = ot.value
-    save('ordenes', ordenes.value)
-  }
-}
-function f(d) { return new Date(d).toLocaleString() }
-
-function onCompletada() {
-  // 1) Registrar en "mantenimientos" (para hoja de vida y detalle de activo)
-  const mant = load('mantenimientos', [])
-  mant.push({
-    id: 'M-' + Date.now(),
-    activoId: ot.value.activoId,
-    tipo: ot.value.tipo,
-    fecha: ot.value.fechaCierre || new Date(),
-    tecnico: ot.value.tecnico || (ot.value.logs.at(-1)?.tecnico || ''),
-    descripcion: ot.value.logs.at(-1)?.nota || ot.value.descripcion || ''
-  })
-  save('mantenimientos', mant)
-
-  // 2) Auto-programar preventiva a +6 meses (solo una vez)
-  if (ot.value.tipo === 'Preventivo' && !ot.value.autoNextCreated) {
-    const next = {
-      id: nextId(ordenes.value),
-      activoId: ot.value.activoId,
-      activoNombre: ot.value.activoNombre,
-      tipo: 'Preventivo',
-      estado: 'Pendiente',
-      fechaProgramada: addMonths(ot.value.fechaCierre || new Date(), 6),
-      tecnico: ot.value.tecnico || '',
-      descripcion: 'Mantenimiento preventivo programado automáticamente (+6 meses)',
-      logs: [{ ts: new Date(), nota: 'Creada automáticamente al completar preventiva.', tecnico: ot.value.tecnico || '' }]
+        if (response.status === 200) {
+            data_ot.value = response.data.data.orden_trabajo || {};
+            listActividades.value = response.data.data.actividades || [];
+        }
+    } catch (error) {
+        console.error(error);
+        errorMsg.value = error.response.data.message;
     }
-    ordenes.value.push(next)
-    ot.value.autoNextCreated = true
-    save('ordenes', ordenes.value)
-  }
 }
 
-function guardarEstado() {
-  ot.value.estado = estado.value
-  if (estado.value === 'Completado' && !ot.value.fechaCierre) ot.value.fechaCierre = new Date()
-  persist()
-  if (estado.value === 'Completado') onCompletada()
-}
-function agregarLog() {
-  if (!logText.value.trim()) return
-  ot.value.logs.push({ ts: new Date(), nota: logText.value, tecnico: logTec.value })
-  logText.value = ''
-  logTec.value = ''
-  persist()
-}
-function firmar() {
-  if (!firma.value.trim()) return
-  ot.value.firmadoPor = firma.value
-  if (!ot.value.fechaCierre) ot.value.fechaCierre = new Date()
-  ot.value.estado = 'Completado'
-  estado.value = 'Completado'
-  persist()
-  onCompletada()
+// Funcion para consultar los estados de las ot
+const consultarEstadosOt = async () => {
+  try {
+        const response = await axios.post(
+            `${apiUrl}/params/obtener_estados_ot`, {},
+            {
+                headers: {
+                    Accept: "application/json",
+                }
+            }
+        );
+
+        if (response.status === 200) {
+            listEstadosOt.value = response.data.data || {};
+        }
+    } catch (error) {
+        console.error(error);
+        errorMsg.value = error.response.data.message;
+    }
 }
 
-function nextId(arr) { return (arr.reduce((m, o) => Math.max(m, o.id || 0), 0) + 1) }
-function addMonths(date, m) {
-  const d = new Date(date)
-  const day = d.getDate()
-  d.setMonth(d.getMonth() + m)
-  // Ajuste fin de mes
-  if (d.getDate() < day) { d.setDate(0) }
-  return d
+// Funcion para consultar los estados de las ot
+const actualizarEstadoOt = async () => {
+  try {
+        const response = await axios.post(
+            `${apiUrl}/actualizar_estado_ot`, 
+            { 
+              estado: estado.value,
+              ot_id: props.id
+            },
+            {
+                headers: {
+                    Accept: "application/json",
+                }
+            }
+        );
+
+        if (response.status === 200) {
+          alert(response.data.message);
+          consultarOt();
+          estado.value = null;
+        }
+    } catch (error) {
+        console.error(error);
+        errorMsg.value = error.response.data.message;
+        alert(errorMsg.value);
+    }
 }
+
+// Funcion para agregar una actividad a la ot
+const agregarActividad = async () => {
+
+  try {
+        const response = await axios.post(
+            `${apiUrl}/agregar_actividad_ot`, 
+            { 
+              ot_id: props.id,
+              descripcion: logText.value,
+              tecnico: logTec.value,
+            },
+            {
+                headers: {
+                    Accept: "application/json",
+                }
+            }
+        );
+
+        if (response.status === 200) {
+          alert(response.data.message);
+          logText.value = ''
+          logTec.value = ''
+          consultarOt();
+        }
+    } catch (error) {
+        console.error(error);
+        errorMsg.value = error.response.data.message;
+        alert(errorMsg.value);
+    }
+}
+
+onMounted(() => {
+  consultarOt();
+  consultarEstadosOt();
+})
+
 </script>
 
 <style scoped>
@@ -159,10 +195,10 @@ function addMonths(date, m) {
 .top{ display:flex; align-items:center; gap:12px; }
 .top h2{ margin:0 }
 .chip{ padding:6px 10px; border-radius:999px; border:1px solid var(--line); margin-left:auto }
-.chip[data-state="Pendiente"]{ background:#fff7e6; color:#8a5200 }
-.chip[data-state="En progreso"]{ background:#eef2ff; color:#1e40af }
-.chip[data-state="Completado"]{ background:#e8f7ea; color:#065f46 }
-.chip[data-state="Cancelado"]{ background:#ffe9e9; color:#9b1c1c }
+.chip[data-state="1"]{ background:#fff7e6; color:#8a5200 }
+.chip[data-state="2"]{ background:#eef2ff; color:#1e40af }
+.chip[data-state="3"]{ background:#e8f7ea; color:#065f46 }
+.chip[data-state="4"]{ background:#ffe9e9; color:#9b1c1c }
 
 .grid{ display:grid; grid-template-columns: 1fr 1fr; gap:16px; margin-top:12px }
 @media (max-width:900px){ .grid{ grid-template-columns:1fr } }

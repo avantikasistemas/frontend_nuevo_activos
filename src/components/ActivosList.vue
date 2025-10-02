@@ -9,23 +9,6 @@
 
     <div class="filters">
       <input v-model="q" class="input" placeholder="Buscar por código">
-      <!-- <select v-model="fTipo" class="input">
-        <option value="">Tipo (todos)</option>
-        <option v-for="t in tipos" :key="t" :value="t">{{ t }}</option>
-      </select>
-      <select v-model="fEstado" class="input">
-        <option value="">Estado (todos)</option>
-        <option value="FUNCIONANDO">Funcionando</option>
-        <option value="MANTENIMIENTO">En mantenimiento</option>
-        <option value="FUERA">Fuera de servicio</option>
-      </select> -->
-      <!-- <select v-model="fUbic" class="input">
-        <option value="">Ubicación (todas)</option>
-        <option v-for="u in ubicaciones" :key="u" :value="u">{{ u }}</option>
-      </select>
-      <input v-model="fProveedor" class="input" placeholder="Proveedor">
-      <input v-model="fTercero" class="input" placeholder="Tercero asignado (ID o nombre)">
-      <input v-model="fResponsable" class="input" placeholder="Usuario responsable"> -->
       <button class="btn ghost" @click="limpiarFiltros">Limpiar</button>
     </div>
 
@@ -103,7 +86,7 @@
           <dt>Costo</dt><dd>{{ info.costo_compra !== undefined && info.costo_compra !== null ? currency(info.costo_compra) : '—' }}</dd>
           <dt>Vida útil</dt><dd>{{ info.vida_util || '—' }} meses</dd>
           <dt>Macroproceso Responsable</dt><dd>{{ info.macroproceso_encargado_nombre || '—' }}</dd>
-          <dt>Centro de costo</dt><dd>{{ info.centro_costo || '—' }}</dd>
+          <dt>Centro de costo</dt><dd>({{ info.centro }}) {{ info.centro_costo || '—' }}</dd>
         </dl>
         <div class="drawer__btns">
           <button class="btn" @click="$emit('verHoja', info)">Ver historial de cambios</button>
@@ -179,7 +162,6 @@ const fEstado = ref('')
 const filtrados = computed(() => {
   const s = q.value.trim().toLowerCase()
   return nuevos_activos.value.filter(a => {
-    // const hit = !s || ['id', 'nombre', 'modelo', 'serie', 'descripcion'].some(k => String(a[k] || '').toLowerCase().includes(s))
     const hit = !s || ['codigo'].some(k => String(a[k] || '').toLowerCase().includes(s))
     const t = !fTipo.value || a.tipo === fTipo.value
     const e = !fEstado.value || a.estado === fEstado.value
@@ -388,7 +370,6 @@ onMounted(() => {
 
 // Función para guardar o actualizar un activo (recibe el objeto desde ActivoForm)
 const guardar = async (activo) => {
-  console.log(activo);
   if (!activo || !activo.codigo) return;
   try {
     api_ruta.value = editando.value ? 'actualizar_activo' : 'guardar_activo';
@@ -500,28 +481,8 @@ function prettyEstado(e) {
 
 // seedIfEmpty ya no es necesario
 
-function diffs(a, b) {
-  const out = []
-  for (const k of TRACK_FIELDS) {
-    let va = a?.[k], vb = b?.[k]
-    if (k === 'tercero') { va = a?.tercero?.id || ''; vb = b?.tercero?.id || '' }
-    if (va !== vb) out.push({
-      campo: k.toUpperCase(),
-      antes: k === 'tercero' ? (a?.tercero?.id + ' — ' + (a?.tercero?.nombreCompleto || '')) || '—' : (a?.[k] ?? '—'),
-      despues: k === 'tercero' ? (b?.tercero?.id + ' — ' + (b?.tercero?.nombreCompleto || '')) || '—' : (b?.[k] ?? '—')
-    })
-  }
-  return out
-}
-
 function limpiarFiltros() {
   q.value = ''
-  // fTipo.value = ''
-  // fEstado.value = ''
-  // fUbic.value = ''
-  // fProveedor.value = ''
-  // fTercero.value = ''
-  // fResponsable.value = ''
 }
 </script>
 

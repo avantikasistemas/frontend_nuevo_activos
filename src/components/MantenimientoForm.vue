@@ -12,11 +12,14 @@
       <div v-if="modo==='individual'" class="grid">
         <label class="field">
           <span>Activo</span>
-          <select v-model="form.activoId" class="input">
-            <option disabled value="">Selecciona un activo…</option>
-            <option v-for="a in activos" :key="a.id" :value="a.id">{{ a.id }} — {{ a.nombre }}</option>
-          </select>
+          <input v-model="form.codigo" class="input" placeholder="Código del activo" @blur="consultarActivo()">
         </label>
+        <div v-if="Object.keys(data_activo).length>0" style="align-self: end;">
+          <p>{{ data_activo.id }} - {{ data_activo.descripcion }}</p>
+        </div>
+        <div v-else style="align-self: end;">
+          <p>{{ errorMsg }}</p>
+        </div>
       </div>
 
       <!-- MASIVO -->
@@ -66,18 +69,24 @@
       <div class="grid">
         <label class="field">
           <span>Tipo de mantenimiento</span>
-          <select v-model="form.tipo" class="input">
-            <option>Preventivo</option>
-            <option>Correctivo</option>
+          <select v-model="form.tipo_mantenimiento" class="input">
+            <option :value="null" >Seleccione tipo de mantenimiento</option>
+            <option :value="1">Preventivo</option>
+            <option :value="2">Correctivo</option>
           </select>
         </label>
         <label class="field">
           <span>Fecha programada</span>
-          <input v-model="form.fechaProgramada" type="date" class="input">
+          <input v-model="form.fecha_programacion" type="date" class="input">
         </label>
         <label class="field">
           <span>Técnico asignado</span>
-          <input v-model="form.tecnico" class="input" placeholder="Nombre del técnico">
+          <select v-model="form.tecnico" class="input">
+            <option :value="null" >Seleccione técnico</option>
+            <option v-for="tec in tecnicos" :value="tec.id" :key="tec.id">
+              {{ tec.id }} - {{ tec.nombre }}
+            </option>
+          </select>
         </label>
       </div>
 
@@ -95,23 +104,27 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue';
+import axios from 'axios';
+import apiUrl from "../../config.js";
 
 const emit = defineEmits(['creadas'])
 
-function load(k, f) { try { return JSON.parse(localStorage.getItem(k)) ?? f } catch { return f } }
-function save(k, v) { localStorage.setItem(k, JSON.stringify(v)) }
-
-const activos = ref(load('activos', []))
-const ordenes = ref(load('ordenes', []))
-
-const tipos = computed(() => Array.from(new Set(activos.value.map(a => a.tipo))).values())
-
+const data_activo = ref({})
 const modo = ref('individual')
-const form = ref({
-  activoId: '', tipo: 'Preventivo',
-  fechaProgramada: todayInput(), tecnico: '', descripcion: ''
-})
+const form = ref(
+  {
+    activo_id: '', 
+    codigo: '', 
+    tipo_mantenimiento: null,
+    fecha_programacion: todayInput(), 
+    tecnico: null, 
+    descripcion: null
+  }
+)
+const tecnicos = ref([])
+
+const errorMsg = ref('')
 
 // MASIVO
 const masivoModo = ref('ids')
@@ -136,59 +149,96 @@ const seleccionados = computed(() => {
 
 const mensaje = ref('')
 
-function crear() {
-  const base = {
-    tipo: form.value.tipo,
-    estado: 'Pendiente',
-    fechaProgramada: form.value.fechaProgramada,
-    tecnico: form.value.tecnico,
-    descripcion: form.value.descripcion,
-    logs: []
-  }
-
-  let nuevas = []
-  if (modo.value === 'individual') {
-    if (!form.value.activoId) { mensaje.value = 'Selecciona un activo.'; return }
-    const a = activos.value.find(x => x.id === form.value.activoId)
-    if (!a) { mensaje.value = 'Activo no encontrado.'; return }
-    nuevas.push(makeOT(a, base))
-  } else {
-    if (masivoModo.value === 'ids') {
-      const ids = idsMasivos.value.split(',').map(s => s.trim()).filter(Boolean)
-      if (ids.length === 0) { mensaje.value = 'Ingresa al menos un ID o usa pestaña "Por tipo".'; return }
-      ids.forEach(id => {
-        const a = activos.value.find(x => x.id === id)
-        if (a) nuevas.push(makeOT(a, base))
-      })
-      if (nuevas.length === 0) { mensaje.value = 'Ninguno de los IDs existe.'; return }
-    } else {
-      const lista = seleccionados.value
-      if (lista.length === 0) { mensaje.value = 'No hay activos que cumplan los filtros.'; return }
-      lista.forEach(a => nuevas.push(makeOT(a, base)))
-    }
-  }
-
-  ordenes.value.push(...nuevas)
-  save('ordenes', ordenes.value)
-  emit('creadas', nuevas)
-  mensaje.value = `Se crearon ${nuevas.length} OT.`
-  // Reset
-  idsMasivos.value = ''
-  form.value = { activoId: '', tipo: 'Preventivo', fechaProgramada: todayInput(), tecnico: '', descripcion: '' }
-}
-
-function makeOT(activo, base) {
-  return {
-    id: nextId(ordenes.value),
-    activoId: activo.id,
-    activoNombre: activo.nombre,
-    ...base
-  }
-}
-
-function nextId(arr) { return (arr.reduce((m, o) => Math.max(m, o.id || 0), 0) + 1) }
 function todayInput() { const d = new Date(); return d.toISOString().slice(0, 10) }
-function monthsDiff(a, b) { const aa = a.getFullYear() * 12 + a.getMonth(); const bb = b.getFullYear() * 12 + b.getMonth(); return bb - aa }
+function monthsDiff(a, b) { 
+  const aa = a.getFullYear() * 12 + a.getMonth(); 
+  const bb = b.getFullYear() * 12 + b.getMonth(); 
+  return bb - aa
+};
+
+// Función para consultar el historial de un activo
+const consultarActivo = async () => {
+
+    try {
+        const response = await axios.post(
+            `${apiUrl}/consultar_activo`,
+            { 
+                codigo: form.value.codigo
+            },
+            {
+                headers: {
+                    Accept: "application/json",
+                }
+            }
+        );
+
+        if (response.status === 200) {
+            data_activo.value = response.data.data || {};
+            form.value.activo_id = data_activo.value.id || '';
+        }
+    } catch (error) {
+        console.error(error);
+        errorMsg.value = error.response.data.message;
+    }
+};
+
+// Función para consultar los tecnicos asignados
+const consultarTecnicos = async () => {
+
+    try {
+        const response = await axios.post(
+            `${apiUrl}/params/obtener_tecnicos`, {},
+            {
+                headers: {
+                    Accept: "application/json",
+                }
+            }
+        );
+
+        if (response.status === 200) {
+            tecnicos.value = response.data.data || {};
+        }
+    } catch (error) {
+        console.error(error);
+        errorMsg.value = error.response.data.message;
+    }
+};
+
+// Función para crear la orden u ordenes de trabajo
+const crear = async () => {
+  try {
+      const response = await axios.post(
+          `${apiUrl}/guardar_orden_trabajo`,
+          { 
+              activo_id: form.value.activo_id,
+              tipo_mantenimiento: form.value.tipo_mantenimiento,
+              fecha_programacion: form.value.fecha_programacion,
+              tecnico_asignado: form.value.tecnico,
+              descripcion: form.value.descripcion
+          },
+          {
+              headers: {
+                  Accept: "application/json",
+              }
+          }
+      );
+
+      if (response.status === 200) {
+          alert(response.data.message);
+      }
+  } catch (error) {
+      console.error(error);
+      errorMsg.value = error.response.data.message;
+      alert(errorMsg.value);
+  }
+}
+
+
+
+onMounted(() => {
+  consultarTecnicos();
+});
+
 </script>
 
 <style scoped>
