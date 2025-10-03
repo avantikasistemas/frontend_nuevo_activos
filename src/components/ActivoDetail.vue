@@ -16,7 +16,7 @@
         </dl>
       </div>
 
-      <div class="card">
+      <!-- <div class="card">
         <h3>Historial de Mantenimiento (solo lectura)</h3>
         <ol class="timeline">
           <li v-for="m in historialMant" :key="m.id">
@@ -29,7 +29,7 @@
           </li>
           <li v-if="historialMant.length===0" class="muted">Sin registros todavía.</li>
         </ol>
-      </div>
+      </div> -->
     </div>
 
     <div class="card">

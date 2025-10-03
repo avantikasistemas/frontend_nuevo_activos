@@ -8,7 +8,7 @@
     </header>
 
     <div class="filters">
-      <input v-model="q" class="input" placeholder="Buscar por código">
+      <input v-model="filtros.codigo" class="input" placeholder="Buscar por código">
       <button class="btn ghost" @click="limpiarFiltros">Limpiar</button>
     </div>
 
@@ -23,7 +23,7 @@
         <div>Macroproceso Responsable</div>
         <div>Acciones</div>
       </div>
-      <div class="row" v-for="a in pageItems" :key="a.id" @click="verInfo(a)">
+      <div class="row" v-for="a in nuevos_activos" :key="a.id" @click="verInfo(a)">
         <div class="mono">{{ a.id }}</div>
         <div class="ell">{{ a.codigo }}</div>
         <div class="ell col-descripcion">{{ a.descripcion }}</div>
@@ -56,16 +56,18 @@
           </button>
         </div>
       </div>
-      <div v-if="pageItems.length===0" class="empty">Sin resultados.</div>
+      <div v-if="nuevos_activos.length===0" class="empty">Sin resultados.</div>
     </div>
 
     <footer class="pager">
-      <button class="btn" :disabled="page===1" @click="page--">«</button>
-      <span>Página {{ page }} de {{ totalPages }}</span>
-      <button class="btn" :disabled="page===totalPages" @click="page++">»</button>
-      <select v-model.number="size" class="input small">
-        <option :value="10">10</option><option :value="20">20</option><option :value="50">50</option>
-      </select>
+      <div v-if="total_registros > 10" class="pagination-bar">
+        <button class="btn" :disabled="position===1" @click="changePage(position-1)">&laquo;</button>
+        <span>Página {{ position }} de {{ total_pag }}</span>
+        <button class="btn" :disabled="position===total_pag" @click="changePage(position+1)">&raquo;</button>
+        <select v-model="limit" @change="changePage(1)" class="input" style="width:65px; margin-left:8px;">
+          <option v-for="n in [10,30,50]" :key="n" :value="n">{{ n }}</option>
+        </select>
+      </div>
     </footer>
 
     <!-- Panel información -->
@@ -135,6 +137,12 @@ import apiUrl from "../../config.js";
 
 const router = useRouter();
 
+const limit = ref(10);
+const position = ref(1);
+const total_pag = ref(0);
+const total_registros = ref(0);
+const filtros = ref({ codigo: '' });
+
 const listEstados = ref([]);
 const listCentros = ref([]);
 const listMacroprocesos = ref([]);
@@ -142,8 +150,6 @@ const listSedes = ref([]);
 const listGrupos = ref([]);
 const listProveedores = ref([]);
 const listTerceros = ref([]);
-
-const TRACK_FIELDS = ['nombre', 'tipo', 'estado', 'ubicacion', 'responsable', 'centroCosto', 'proveedor', 'docCompra', 'fechaCompra', 'marca', 'modelo', 'serie', 'tercero']
 
 const emit = defineEmits(['verHoja'])
 
@@ -156,27 +162,6 @@ const errorMsg = ref('');
 const api_ruta = ref('');
 
 const q = ref('')
-const fTipo = ref('')
-const fEstado = ref('')
-
-const filtrados = computed(() => {
-  const s = q.value.trim().toLowerCase()
-  return nuevos_activos.value.filter(a => {
-    const hit = !s || ['codigo'].some(k => String(a[k] || '').toLowerCase().includes(s))
-    const t = !fTipo.value || a.tipo === fTipo.value
-    const e = !fEstado.value || a.estado === fEstado.value
-    return hit && t && e
-  })
-})
-
-const page = ref(1)
-const size = ref(10)
-const totalPages = computed(() => Math.max(1, Math.ceil(filtrados.value.length / size.value)))
-watch([filtrados, size], () => page.value = 1)
-const pageItems = computed(() => {
-  const start = (page.value - 1) * size.value
-  return filtrados.value.slice(start, start + size.value)
-})
 
 const info = ref(null)
 function verInfo(a) { info.value = a }
@@ -193,7 +178,12 @@ const consultarActivos = async () => {
     loading.value = true;
     loading_msg.value = 'Buscando...';
     const response = await axios.post(
-      `${apiUrl}/consultar_activos`, {},
+      `${apiUrl}/consultar_activos`, 
+      {
+        limit: limit.value,
+        position: position.value,
+        filtros: filtros.value
+      },
       {
         headers: {
           Accept: "application/json",
@@ -201,7 +191,10 @@ const consultarActivos = async () => {
       }
     );
     if (response.status === 200) {
-      nuevos_activos.value = response.data.data || [];
+      nuevos_activos.value = response.data.data.registros || [];
+      position.value = response.data.data.posicion_pag || 1;
+      total_pag.value = response.data.data.total_pag || 0;
+      total_registros.value = response.data.data.total_registros || 0;
     }
   } catch (error) {
     console.error(error);
@@ -357,15 +350,18 @@ const abrirTerceroEnNuevaPestana = (tercero) => {
     window.open(routeData.href, '_blank');
 };
 
-onMounted(() => {
-  consultarActivos();
-  obtenerEstados();
-  obtenerCentros();
-  obtenerMacroprocesos();
-  obtenerSedes();
-  obtenerGrupos();
-  obtenerProveedores();
-  obtenerTerceros();
+// ✅ Función para cambiar pagina del paginador
+const changePage = async (newPosition) => {
+  position.value = newPosition;
+  await consultarActivos(); // Vuelve a cargar los datos con el nuevo límite y posición
+};
+
+let debounceTimer = null;
+watch(() => filtros.value.codigo, (nuevoCodigo) => {
+  if (debounceTimer) clearTimeout(debounceTimer);
+  debounceTimer = setTimeout(() => {
+    consultarActivos();
+  }, 250);
 });
 
 // Función para guardar o actualizar un activo (recibe el objeto desde ActivoForm)
@@ -479,11 +475,20 @@ function prettyEstado(e) {
   return { texto: e, color: 'default' };
 }
 
-// seedIfEmpty ya no es necesario
-
 function limpiarFiltros() {
-  q.value = ''
+  filtros.value.codigo = '';
 }
+
+onMounted(() => {
+  consultarActivos();
+  obtenerEstados();
+  obtenerCentros();
+  obtenerMacroprocesos();
+  obtenerSedes();
+  obtenerGrupos();
+  obtenerProveedores();
+  obtenerTerceros();
+});
 </script>
 
 <style scoped>

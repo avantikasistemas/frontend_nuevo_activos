@@ -24,54 +24,32 @@
                 <div v-else class="activo-resultado">
                   <p>{{ errorMsg }}</p>
                 </div>
+                <div style="height:32px;"></div>
               </div>
 
               <!-- MASIVO -->
               <div v-else class="stack">
-                <div class="subtabs">
+                <!-- <div class="subtabs">
                   <button type="button" class="subtab" :class="{active: masivoModo==='ids'}" @click="masivoModo='ids'">Por lista de IDs</button>
                   <button type="button" class="subtab" :class="{active: masivoModo==='tipo'}" @click="masivoModo='tipo'">Por tipo</button>
-                </div>
+                </div> -->
 
-                <div v-if="masivoModo==='ids'" class="grid-form">
+                <div class="grid-form">
                   <label class="field">
-                    <span>Activos (IDs separados por coma)</span>
-                    <input v-model="idsMasivos" class="input" placeholder="A-100, A-103, 7387">
+                    <span>Activos</span>
+                    <select v-model="grupo" class="input">
+                      <option :value="null" >Seleccione grupo</option>
+                      <option v-for="gru in listGrupos" :value="gru.id" :key="gru.id">
+                        {{ gru.id }} - {{ gru.nombre }}
+                      </option>
+                  </select>
                   </label>
                 </div>
-
-                <div v-else class="grid-form">
-                  <label class="field">
-                    <span>Tipo de activo</span>
-                    <select v-model="fTipo" class="input">
-                      <option disabled value="">Selecciona…</option>
-                      <option v-for="t in tipos" :key="t" :value="t">{{ t }}</option>
-                    </select>
-                  </label>
-                  <label class="field">
-                    <span>Antigüedad mínima desde compra (meses)</span>
-                    <input v-model.number="minMeses" type="number" min="0" class="input" placeholder="0">
-                  </label>
-                  <label class="field">
-                    <span>Comprados antes de (opcional)</span>
-                    <input v-model="compradosAntesDe" type="date" class="input">
-                  </label>
-                  <label class="field">
-                    <span>Incluir sin fecha de compra</span>
-                    <select v-model="incluirSinFecha" class="input">
-                      <option :value="false">No</option>
-                      <option :value="true">Sí</option>
-                    </select>
-                  </label>
-
-                  <div class="preview">
-                    <span class="muted">Seleccionados por filtros: <strong>{{ seleccionados.length }}</strong> activos</span>
-                  </div>
-                </div>
+                <div style="height:32px;"></div>
               </div>
 
               <div class="grid-form">
-                <label class="field">
+                <label v-if="modo==='individual'" class="field">
                   <span>Tipo de mantenimiento</span>
                   <select v-model="form.tipo_mantenimiento" class="input">
                     <option :value="null" >Seleccione tipo de mantenimiento</option>
@@ -80,8 +58,12 @@
                   </select>
                 </label>
                 <label class="field">
-                  <span>Fecha programada</span>
-                  <input v-model="form.fecha_programacion" type="date" class="input">
+                  <span>{{ modo==='individual' ? 'Fecha programada' : 'Fecha programada desde' }}</span>
+                  <input v-model="form.fecha_programacion_desde" type="date" class="input">
+                </label>
+                <label v-if="modo==='masivo'" class="field">
+                  <span v-if="modo==='masivo'">{{ modo==='individual' ? 'Fecha programada' : 'Fecha programada hasta' }}</span>
+                  <input v-if="modo==='masivo'" v-model="form.fecha_programacion_hasta" type="date" class="input">
                 </label>
                 <label class="field">
                   <span>Técnico asignado</span>
@@ -116,7 +98,7 @@
             <div class="mono">#{{ index+1 }}</div>
             <div class="ell">{{ o.id }}</div>
             <div>{{ o.tipo_mantenimiento_nombre }}</div>
-            <div>{{ o.fecha_programacion }}</div>
+            <div>{{ o.fecha_programacion_desde }}</div>
             <div><span class="chip" :data-s="o.estado_ot">{{ o.estado_ot_nombre }}</span></div>
             <div class="right">
               <button class="btn" @click="$router.push({name:'ot', params:{ id: o.id }})">Ver</button>
@@ -124,64 +106,74 @@
           </div>
           <div v-if="historial_ot.length===0" class="empty">No hay órdenes aún.</div>
         </div>
+        <div v-if="total_registros > 10" class="pagination-bar">
+          <button class="btn" :disabled="position===1" @click="changePage(position-1)">&laquo;</button>
+          <span>Página {{ position }} de {{ total_pag }}</span>
+          <button class="btn" :disabled="position===total_pag" @click="changePage(position+1)">&raquo;</button>
+          <select v-model="limit" @change="changePage(1)" class="input" style="width:65px; margin-left:8px;">
+            <option v-for="n in [10,30,50]" :key="n" :value="n">{{ n }}</option>
+          </select>
+        </div>
       </div>
     </div>
   </section>
+
+  <!-- Overlay de carga -->
+  <div v-if="loading" class="loading-overlay">
+      <div class="spinner-border text-light" role="status">
+          <span class="visually-hidden"></span>
+      </div>
+      <p class="mt-2 text-light">{{ loading_msg }}</p>
+  </div>
+
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue';
+import { ref, onMounted, watch } from 'vue';
 import axios from 'axios';
 import apiUrl from "../../config.js";
 
-const ordenes = ref([]);
+const endpoint = ref('');
+const grupo = ref('');
+const listGrupos = ref([]);
+
+const limit = ref(10);
+const position = ref(1);
+const total_pag = ref(0);
+const total_registros = ref(0);
 
 const data_activo = ref({})
+const data_payload = ref({})
 const modo = ref('individual')
-const form = ref(
-  {
-    activo_id: '', 
-    codigo: '', 
-    tipo_mantenimiento: null,
-    fecha_programacion: todayInput(), 
-    tecnico: null, 
-    descripcion: null
-  }
-)
+const form = ref({
+  activo_id: '', 
+  codigo: '', 
+  tipo_mantenimiento: null,
+  fecha_programacion_desde: modo.value === 'individual' ? todayInput() : firstDayOfMonth(), 
+  fecha_programacion_hasta: modo.value === 'individual' ? null : lastDayOfMonth(), 
+  tecnico: null, 
+  descripcion: null
+})
 const tecnicos = ref([])
 const historial_ot = ref([])
 
 const errorMsg = ref('')
 
 // MASIVO
-const masivoModo = ref('ids')
-const idsMasivos = ref('')
-const fTipo = ref('')
-const minMeses = ref(0)
-const compradosAntesDe = ref('')
-const incluirSinFecha = ref(false)
-
-const seleccionados = computed(() => {
-  if (masivoModo.value !== 'tipo' || !fTipo.value) return []
-  const dt = compradosAntesDe.value ? new Date(compradosAntesDe.value) : null
-  return activos.value.filter(a => {
-    if (a.tipo !== fTipo.value) return false
-    const fc = a.fechaCompra ? new Date(a.fechaCompra) : null
-    const meses = fc ? monthsDiff(fc, new Date()) : null
-    const pasaMeses = fc ? (meses >= (minMeses.value || 0)) : incluirSinFecha.value
-    const pasaFecha = dt ? (fc ? (fc < dt) : incluirSinFecha.value) : true
-    return pasaMeses && pasaFecha
-  })
-})
+const loading = ref(false)
+const loading_msg = ref('')
 
 const mensaje = ref('')
 
 function todayInput() { const d = new Date(); return d.toISOString().slice(0, 10) }
-function monthsDiff(a, b) { 
-  const aa = a.getFullYear() * 12 + a.getMonth(); 
-  const bb = b.getFullYear() * 12 + b.getMonth(); 
-  return bb - aa
-};
+function firstDayOfMonth() {
+  const d = new Date();
+  return new Date(d.getFullYear(), d.getMonth(), 1).toISOString().slice(0, 10);
+}
+function lastDayOfMonth() {
+  const d = new Date();
+  return new Date(d.getFullYear(), d.getMonth() + 1, 0).toISOString().slice(0, 10);
+}
 
 // Función para consultar el historial de un activo
 const consultarActivo = async () => {
@@ -203,6 +195,35 @@ const consultarActivo = async () => {
             data_activo.value = response.data.data.data_activo || {};
             historial_ot.value = response.data.data.historial_ot || [];
             form.value.activo_id = data_activo.value.id || '';
+        }
+    } catch (error) {
+        console.error(error);
+        errorMsg.value = error.response.data.message;
+    }
+};
+
+// Función para consultar el historial de un activo
+const consultarTodasOT = async () => {
+
+    try {
+        const response = await axios.post(
+            `${apiUrl}/consultar_ordenes_trabajo`,
+            {
+              limit: limit.value,
+              position: position.value
+            },
+            {
+                headers: {
+                    Accept: "application/json",
+                }
+            }
+        );
+
+        if (response.status === 200) {
+            historial_ot.value = response.data.data.registros || [];
+            position.value = response.data.data.posicion_pag || 1;
+            total_pag.value = response.data.data.total_pag || 0;
+            total_registros.value = response.data.data.total_registros || 0;
         }
     } catch (error) {
         console.error(error);
@@ -235,15 +256,31 @@ const consultarTecnicos = async () => {
 // Función para crear la orden u ordenes de trabajo
 const crear = async () => {
   try {
+      loading.value = true;
+      loading_msg.value = 'Guardando...';
+      if (modo.value==='individual'){
+        endpoint.value = 'guardar_orden_trabajo'
+        data_payload.value = { 
+            activo_id: form.value.activo_id,
+            tipo_mantenimiento: form.value.tipo_mantenimiento,
+            fecha_programacion_desde: form.value.fecha_programacion_desde,
+            fecha_programacion_hasta: form.value.fecha_programacion_hasta,
+            tecnico_asignado: form.value.tecnico,
+            descripcion: form.value.descripcion
+        }
+      }else {
+        endpoint.value = 'guardar_ordenes_masivas'
+        data_payload.value = {
+            grupo: grupo.value,
+            fecha_programacion_desde: form.value.fecha_programacion_desde,
+            fecha_programacion_hasta: form.value.fecha_programacion_hasta,
+            tecnico_asignado: form.value.tecnico,
+            descripcion: form.value.descripcion
+        }
+      }
       const response = await axios.post(
-          `${apiUrl}/guardar_orden_trabajo`,
-          { 
-              activo_id: form.value.activo_id,
-              tipo_mantenimiento: form.value.tipo_mantenimiento,
-              fecha_programacion: form.value.fecha_programacion,
-              tecnico_asignado: form.value.tecnico,
-              descripcion: form.value.descripcion
-          },
+          `${apiUrl}/${endpoint.value}`, 
+          data_payload.value,
           {
               headers: {
                   Accept: "application/json",
@@ -252,33 +289,101 @@ const crear = async () => {
       );
 
       if (response.status === 200) {
-          alert(response.data.message);
-          consultarActivo();
-          limpiar();
+        alert(response.data.message);
+          if (modo.value==='individual'){
+            consultarActivo();
+            limpiar();
+          } else {
+            consultarTodasOT();
+            limpiar();
+          }
       }
   } catch (error) {
       console.error(error);
       errorMsg.value = error.response.data.message;
       alert(errorMsg.value);
+  } finally {
+    loading.value = false;
+    loading_msg.value = '';
   }
-}
+};
+
+// Función para obtener los grupos
+const obtenerGrupos = async () => {
+    try {
+        const response = await axios.post(
+            `${apiUrl}/params/obtener_grupo_contable`, {},
+            {
+                headers: {
+                    Accept: "application/json",
+                }
+            }
+        );
+        if (response.status === 200) {
+            listGrupos.value = response.data.data || [];
+        }
+    } catch (error) {
+        console.error('Error al obtener grupos:', error);
+        errorMsg.value = 'Error al cargar los grupos.';
+    }
+};
 
 // Funcion para limpiar
 const limpiar = () => {
   form.value.tipo_mantenimiento = null;
-  form.value.fecha_programacion = todayInput();
+  form.value.fecha_programacion_desde = todayInput();
+  form.value.fecha_programacion_hasta = null;
   form.value.tecnico = null;
   form.value.descripcion = null;
 }
 
-onMounted(() => {
-  consultarTecnicos();
+// Watcher para el modo de creación
+watch(modo, (nuevoModo) => {
+  if (nuevoModo === 'individual') {
+    form.value.fecha_programacion_desde = todayInput();
+    form.value.fecha_programacion_hasta = null;
+    historial_ot.value = [];
+    limit.value = 10;
+    position.value = 1;
+    total_pag.value = 0;
+    total_registros.value = 0;
+  } else {
+    form.value.fecha_programacion_desde = firstDayOfMonth();
+    form.value.fecha_programacion_hasta = lastDayOfMonth();
+    consultarTodasOT();
+  }
 });
 
+// ✅ Función para cambiar pagina del paginador
+const changePage = async (newPosition) => {
+  position.value = newPosition;
+  await consultarTodasOT(); // Vuelve a cargar los datos con el nuevo límite y posición
+};
+
+onMounted(() => {
+  consultarTecnicos();
+  obtenerGrupos();
+});
 
 </script>
 
 <style scoped>
+.pagination-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  justify-content: flex-end;
+  margin: 18px 0 8px 0;
+}
+.pagination-bar .btn {
+  padding: 6px 14px;
+  border-radius: 12px;
+  font-size: 18px;
+}
+.pagination-bar select.input {
+  min-width: 50px;
+  font-size: 15px;
+}
 /* Estilos para el formulario de mantenimiento */
 .wrap-form{ color:var(--ink) }
 h2{ margin:0 0 10px }
@@ -339,4 +444,33 @@ h3{ margin:0 0 8px }
 .chip[data-s="2"]{ color:#1e40af; background:#eef2ff }
 .chip[data-s="3"]{ color:#065f46; background:#e8f7ea }
 .empty{ text-align:center; color:var(--muted); padding:18px }
+
+/* Overlay de carga */
+.loading-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: rgba(44, 62, 80, 0.45);
+    z-index: 9999;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+}
+
+.loading-overlay .spinner-border {
+    width: 3rem;
+    height: 3rem;
+    border-width: 0.35em;
+}
+
+.loading-overlay p {
+    color: #fff;
+    font-size: 1.15rem;
+    margin-top: 1.2rem;
+    text-align: center;
+    text-shadow: 0 1px 4px rgba(0,0,0,0.18);
+}
 </style>
