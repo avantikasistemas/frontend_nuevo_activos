@@ -7,20 +7,20 @@
 
     <div class="grid">
       <div class="card kpi">
-        <div class="kpi__value">{{ activos.length }}</div>
+        <div class="kpi__value">{{ total_activos }}</div>
         <div class="kpi__label">Activos Totales</div>
       </div>
       <div class="card kpi">
-        <div class="kpi__value">{{ pendientes.length }}</div>
+        <div class="kpi__value">{{ pendientes }}</div>
         <div class="kpi__label">OT Pendientes</div>
       </div>
       <div class="card kpi">
-        <div class="kpi__value">{{ completadas.length }}</div>
-        <div class="kpi__label">OT Completadas (30d)</div>
+        <div class="kpi__value">{{ progreso }}</div>
+        <div class="kpi__label">OT En Progreso</div>
       </div>
       <div class="card kpi">
-        <div class="kpi__value">{{ vencidas.length }}</div>
-        <div class="kpi__label">OT Vencidas</div>
+        <div class="kpi__value">{{ completadas }}</div>
+        <div class="kpi__label">OT Completadas</div>
       </div>
     </div>
 
@@ -31,140 +31,207 @@
         <div class="donut-wrap">
           <svg viewBox="0 0 42 42" class="donut">
             <circle class="donut-ring" cx="21" cy="21" r="15.915"/>
-            <circle
-              class="donut-segment ok"
-              cx="21" cy="21" r="15.915"
-              :stroke-dasharray="pct(estadoCounts.funcionando) + ' ' + (100 - pct(estadoCounts.funcionando))"
-              stroke-dashoffset="25"
-            />
-            <circle
-              class="donut-segment maint"
-              cx="21" cy="21" r="15.915"
-              :stroke-dasharray="pct(estadoCounts.mantenimiento) + ' ' + (100 - pct(estadoCounts.mantenimiento))"
-              :stroke-dashoffset="25 - pct(estadoCounts.funcionando)"
-            />
-            <circle
-              class="donut-segment down"
-              cx="21" cy="21" r="15.915"
-              :stroke-dasharray="pct(estadoCounts.fuera) + ' ' + (100 - pct(estadoCounts.fuera))"
-              :stroke-dashoffset="25 - pct(estadoCounts.funcionando) - pct(estadoCounts.mantenimiento)"
-            />
+              <!-- Segmento: Activos -->
+              <circle
+                class="donut-segment ok"
+                cx="21" cy="21" r="15.915"
+                :stroke-dasharray="pct(activos_no_retirados) + ' ' + (100 - pct(activos_no_retirados))"
+                stroke-dashoffset="25"
+              />
+              <!-- Segmento: Retirados -->
+              <circle
+                class="donut-segment maint"
+                cx="21" cy="21" r="15.915"
+                :stroke-dasharray="pct(activos_retirados) + ' ' + (100 - pct(activos_retirados))"
+                :stroke-dashoffset="25 - pct(activos_no_retirados)"
+              />
             <text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" class="donut__center">
-              {{ activos.length }}
+              {{ total_activos }}
             </text>
           </svg>
           <ul class="legend">
-            <li><span class="dot ok"></span>Funcionando ({{ estadoCounts.funcionando }})</li>
-            <li><span class="dot maint"></span>En mantenimiento ({{ estadoCounts.mantenimiento }})</li>
-            <li><span class="dot down"></span>Fuera de servicio ({{ estadoCounts.fuera }})</li>
+            <li><span class="dot ok"></span>Activos ({{ activos_no_retirados }})</li>
+            <li><span class="dot maint"></span>Retirados ({{ activos_retirados }})</li>
           </ul>
         </div>
       </div>
 
       <!-- Barras: Preventivo vs Correctivo -->
       <div class="card chart">
-        <h3>Tipo de mantenimiento (últimos 90 días)</h3>
+        <h3>Tipo de mantenimiento</h3>
         <div class="bars">
           <div class="bar">
             <div class="bar__label">Preventivo</div>
             <div class="bar__track">
-              <div class="bar__fill bar--prev" :style="{width: pctBar(prevCount, maxBar) + '%'}"></div>
+              <div class="bar__fill bar--prev" :style="{width: pctBar(preventivo, preventivo + correctivo) + '%'}"></div>
             </div>
-            <div class="bar__value">{{ prevCount }}</div>
+            <div class="bar__value">{{ preventivo }}</div>
           </div>
           <div class="bar">
             <div class="bar__label">Correctivo</div>
             <div class="bar__track">
-              <div class="bar__fill bar--corr" :style="{width: pctBar(corrCount, maxBar) + '%'}"></div>
+              <div class="bar__fill bar--corr" :style="{width: pctBar(correctivo, preventivo + correctivo) + '%'}"></div>
             </div>
-            <div class="bar__value">{{ corrCount }}</div>
+            <div class="bar__value">{{ correctivo }}</div>
           </div>
         </div>
       </div>
 
       <!-- Tarjeta de próximas OT -->
-      <div class="card chart">
+      <!-- <div class="card chart">
         <h3>Próximas órdenes (7 días)</h3>
         <ul class="list">
-          <li v-for="ot in proximas" :key="ot.id">
-            <strong>#{{ ot.id }}</strong> · {{ ot.activoNombre }} · {{ ot.tipo }}
-            <span class="chip">{{ formatDate(ot.fechaProgramada) }}</span>
+          <li v-for="ot in []" :key="ot.id">
+            <strong>#{{ 1 }}</strong> · {{ 1111 }} · {{ 1 }}
+            <span class="chip">{{ 2020 }}</span>
           </li>
-          <li v-if="proximas.length === 0" class="muted">No hay órdenes en la próxima semana.</li>
+          <li v-if="[].length === 0" class="muted">No hay órdenes en la próxima semana.</li>
         </ul>
-      </div>
+      </div> -->
     </div>
   </section>
+
+  <!-- Overlay de carga -->
+  <div v-if="loading" class="loading-overlay">
+      <div class="spinner-border text-light" role="status">
+          <span class="visually-hidden"></span>
+      </div>
+      <p class="mt-2 text-light">{{ loading_msg }}</p>
+  </div>
+
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, onMounted } from 'vue';
+import axios from 'axios';
+import apiUrl from "../../config.js";
 
-function load(key, fallback) {
-  try { return JSON.parse(localStorage.getItem(key)) ?? fallback } catch { return fallback }
-}
-function save(key, value) { localStorage.setItem(key, JSON.stringify(value)) }
+const loading = ref(false);
+const loading_msg = ref('');
+const errorMsg = ref('');
 
-function addDays(date, days) { const d = new Date(date); d.setDate(d.getDate() + days); return d }
-function daysDiff(a, b) { const ms = Math.abs(new Date(b) - new Date(a)); return Math.floor(ms / 86400000) }
-function today() { const d = new Date(); d.setHours(0, 0, 0, 0); return d }
+const total_activos = ref([])
+const pendientes = ref(0)
+const progreso = ref(0)
+const completadas = ref(0)
+const activos_no_retirados = ref(0)
+const activos_retirados = ref(0)
+const preventivo = ref(0)
+const correctivo = ref(0)
+
+// Función para buscar el total de activos
+const consultarActivos = async () => {
+  try {
+    loading.value = true;
+    loading_msg.value = 'Buscando...';
+    const response = await axios.post(
+      `${apiUrl}/consultar_activos`, 
+      {
+        limit: 5,
+        position: 1,
+        filtros: ''
+      },
+      {
+        headers: {
+          Accept: "application/json",
+        }
+      }
+    );
+    if (response.status === 200) {
+      total_activos.value = response.data.data.total_registros || 0;
+    }
+  } catch (error) {
+    console.error(error);
+  } finally {
+    loading.value = false;
+  }
+};
+
+// Función para buscar activos desde el backend
+const obtenerOtxEstado = async (estado) => {
+  try {
+    loading.value = true;
+    loading_msg.value = 'Buscando...';
+    const response = await axios.post(
+      `${apiUrl}/params/obtener_ot_x_estado`, 
+      {
+        estado_ot: estado
+      },
+      {
+        headers: {
+          Accept: "application/json",
+        }
+      }
+    );
+    if (response.status === 200) {
+      if (estado === 1) pendientes.value = response.data.data || 0;
+      if (estado === 2) progreso.value = response.data.data || 0;
+      if (estado === 3) completadas.value = response.data.data || 0
+    }
+  } catch (error) {
+    console.error(error);
+  } finally {
+    loading.value = false;
+  }
+};
+
+// Función para buscar el conteo de tipos de mantenimiento
+const conteoTiposMantenimientoOt = async () => {
+  try {
+    const response = await axios.post(
+      `${apiUrl}/params/conteo_tipos_mantenimiento_ot`, 
+      {},
+      {
+        headers: {
+          Accept: "application/json",
+        }
+      }
+    );
+    if (response.status === 200) {
+      preventivo.value = response.data.data.preventivo || 0;
+      correctivo.value = response.data.data.correctivo || 0;
+    }
+  } catch (error) {
+    console.error(error);
+  }
+};
+
+// Función para buscar el conteo de activos retirados
+const conteoActivosRetirados = async () => {
+  try {
+    const response = await axios.post(
+      `${apiUrl}/params/conteo_activos_retirados`, 
+      {},
+      {
+        headers: {
+          Accept: "application/json",
+        }
+      }
+    );
+    if (response.status === 200) {
+      activos_no_retirados.value = response.data.data.activos_no_retirados || 0;
+      activos_retirados.value = response.data.data.activos_retirados || 0;
+    }
+  } catch (error) {
+    console.error(error);
+  }
+};
 
 onMounted(() => {
-  if (!localStorage.getItem('activos')) {
-    save('activos', [
-      { id: 'A-100', nombre: 'Laptop ThinkPad', tipo: 'Computo', estado: 'FUNCIONANDO', ubicacion: 'Barranquilla' },
-      { id: 'A-101', nombre: 'Switch PoE 48p', tipo: 'Telecom', estado: 'MANTENIMIENTO', ubicacion: 'Bogotá' },
-      { id: 'A-102', nombre: 'UPS 3kVA', tipo: 'Oficina', estado: 'FUNCIONANDO', ubicacion: 'Barranquilla' },
-      { id: 'A-103', nombre: 'Impresora', tipo: 'Oficina', estado: 'FUERA', ubicacion: 'Barranquilla' },
-    ])
-  }
-  if (!localStorage.getItem('ordenes')) {
-    const now = new Date()
-    save('ordenes', [
-      { id: 1, activoId: 'A-101', activoNombre: 'Switch PoE 48p', tipo: 'Correctivo', estado: 'Pendiente', fechaProgramada: addDays(now, 2), logs: [] },
-      { id: 2, activoId: 'A-100', activoNombre: 'Laptop ThinkPad', tipo: 'Preventivo', estado: 'Completado', fechaProgramada: addDays(now, -5), fechaCierre: addDays(now, -4), logs: [{ ts: addDays(now, -4), nota: 'Limpieza y verificación', tecnico: 'Ana' }] },
-      { id: 3, activoId: 'A-103', activoNombre: 'Impresora', tipo: 'Correctivo', estado: 'Pendiente', fechaProgramada: addDays(now, -1), logs: [] },
-    ])
-  }
-  if (!localStorage.getItem('mantenimientos')) {
-    save('mantenimientos', [
-      { id: 'M-1', activoId: 'A-100', tipo: 'Preventivo', fecha: addDays(new Date(), -20), tecnico: 'Carlos', descripcion: 'Cambio pasta térmica' },
-      { id: 'M-2', activoId: 'A-103', tipo: 'Correctivo', fecha: addDays(new Date(), -10), tecnico: 'Luisa', descripcion: 'Reemplazo fusor' },
-    ])
-  }
+  consultarActivos();
+  pendientes.value = obtenerOtxEstado(1);
+  progreso.value = obtenerOtxEstado(2);
+  completadas.value = obtenerOtxEstado(3);
+  conteoActivosRetirados();
+  conteoTiposMantenimientoOt();
 })
 
-const activos = ref(load('activos', []))
-const ordenes = ref(load('ordenes', []))
-const mantenimientos = ref(load('mantenimientos', []))
 
-const pendientes = computed(() => ordenes.value.filter(o => o.estado === 'Pendiente'))
-const vencidas = computed(() => pendientes.value.filter(o => new Date(o.fechaProgramada) < today()))
-const completadas = computed(() => ordenes.value.filter(o => o.estado === 'Completado' && daysDiff(o.fechaCierre, new Date()) <= 30))
-const proximas = computed(() => ordenes.value
-  .filter(o => daysDiff(new Date(), o.fechaProgramada) <= 7 && daysDiff(new Date(), o.fechaProgramada) >= 0)
-  .sort((a, b) => new Date(a.fechaProgramada) - new Date(b.fechaProgramada))
-  .slice(0, 6)
-)
-
-const estadoCounts = computed(() => {
-  const c = { funcionando: 0, mantenimiento: 0, fuera: 0 }
-  activos.value.forEach(a => {
-    if (a.estado === 'FUNCIONANDO') c.funcionando++
-    else if (a.estado === 'MANTENIMIENTO') c.mantenimiento++
-    else c.fuera++
-  })
-  return c
-})
-
-const last90 = computed(() => mantenimientos.value.filter(m => daysDiff(m.fecha, new Date()) <= 90))
-const prevCount = computed(() => last90.value.filter(m => m.tipo === 'Preventivo').length)
-const corrCount = computed(() => last90.value.filter(m => m.tipo === 'Correctivo').length)
-const maxBar = computed(() => Math.max(1, prevCount.value, corrCount.value))
 
 function pct(part) {
-  const total = activos.value.length || 1
-  return +(part * 100 / total).toFixed(2)
+  // Calcula el porcentaje basado en la suma de activos y retirados
+  const total = (Number(activos_no_retirados.value) || 0) + (Number(activos_retirados.value) || 0) || 1;
+  return +(Number(part) * 100 / total).toFixed(2)
 }
 function pctBar(v, max) { return Math.round((v / (max || 1)) * 100) }
 function formatDate(d) { return new Date(d).toLocaleDateString() }
@@ -216,5 +283,33 @@ function formatDate(d) { return new Date(d).toLocaleDateString() }
 .chip{
   background:var(--accent-soft); border:1px solid #dbe7ff; color:#1e40af;
   font-size:11px; padding:2px 8px; border-radius:999px; margin-left:6px
+}
+/* Overlay de carga */
+.loading-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: rgba(44, 62, 80, 0.45);
+    z-index: 9999;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+}
+
+.loading-overlay .spinner-border {
+    width: 3rem;
+    height: 3rem;
+    border-width: 0.35em;
+}
+
+.loading-overlay p {
+    color: #fff;
+    font-size: 1.15rem;
+    margin-top: 1.2rem;
+    text-align: center;
+    text-shadow: 0 1px 4px rgba(0,0,0,0.18);
 }
 </style>
