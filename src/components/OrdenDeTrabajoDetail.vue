@@ -11,6 +11,7 @@
         <h3>Datos</h3>
         <dl class="meta">
           <dt>Activo</dt><dd>{{ data_ot.activo_id }} — {{ data_ot.descripcion_activo }}</dd>
+          <dt>Código</dt><dd>{{ data_ot.codigo }}</dd>
           <dt>Tipo</dt><dd>{{ data_ot.tipo_mantenimiento_nombre }}</dd>
           <dt>Programada</dt><dd>{{ (data_ot.fecha_programacion_desde) }}</dd>
           <dt>Técnico</dt><dd>{{ data_ot.tecnico || '—' }}</dd>

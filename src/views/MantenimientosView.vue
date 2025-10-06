@@ -91,20 +91,35 @@
       <div class="col">
         <h3>Órdenes de trabajo</h3>
         <div class="table">
-          <div class="thead">
-            <div>#</div><div>OT Id</div><div>Tipo</div><div>Programada</div><div>Estado</div><div></div>
-          </div>
-          <div class="row" v-for="(o, index) in historial_ot" :key="o.id">
-            <div class="mono">#{{ index+1 }}</div>
-            <div class="ell">{{ o.id }}</div>
-            <div>{{ o.tipo_mantenimiento_nombre }}</div>
-            <div>{{ o.fecha_programacion_desde }}</div>
-            <div><span class="chip" :data-s="o.estado_ot">{{ o.estado_ot_nombre }}</span></div>
-            <div class="right">
-              <button class="btn" @click="$router.push({name:'ot', params:{ id: o.id }})">Ver</button>
-            </div>
-          </div>
-          <div v-if="historial_ot.length===0" class="empty">No hay órdenes aún.</div>
+          <table class="table">
+            <thead class="thead">
+              <tr>
+                <th>#</th>
+                <th>OT Id</th>
+                <th>Cod.</th>
+                <th>Tipo</th>
+                <th>Programada</th>
+                <th>Estado</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr class="row" v-for="(o, index) in historial_ot" :key="o.id">
+                <td class="mono">#{{ index+1 }}</td>
+                <td class="ell">{{ o.id }}</td>
+                <td>{{ o.codigo ? o.codigo : codTabla }}</td>
+                <td>{{ o.tipo_mantenimiento_nombre }}</td>
+                <td>{{ o.fecha_programacion_desde }}</td>
+                <td><span class="chip" :data-s="o.estado_ot">{{ o.estado_ot_nombre }}</span></td>
+                <td class="right">
+                  <button class="btn" @click="$router.push({name:'ot', params:{ id: o.id }})">Ver</button>
+                </td>
+              </tr>
+              <tr v-if="historial_ot.length===0">
+                <td class="empty" colspan="6">No hay órdenes aún.</td>
+              </tr>
+            </tbody>
+          </table>
         </div>
         <div v-if="total_registros > 10" class="pagination-bar">
           <button class="btn" :disabled="position===1" @click="changePage(position-1)">&laquo;</button>
@@ -136,6 +151,7 @@ import apiUrl from "../../config.js";
 const endpoint = ref('');
 const grupo = ref('');
 const listGrupos = ref([]);
+const codTabla = ref('');
 
 const limit = ref(10);
 const position = ref(1);
@@ -195,6 +211,7 @@ const consultarActivo = async () => {
             data_activo.value = response.data.data.data_activo || {};
             historial_ot.value = response.data.data.historial_ot || [];
             form.value.activo_id = data_activo.value.id || '';
+            codTabla.value = form.value.codigo;
         }
     } catch (error) {
         console.error(error);
@@ -426,24 +443,77 @@ h2{ margin:0 0 10px }
 @media (max-width:1100px){ .grid{ grid-template-columns: 1fr } }
 .col{ background:transparent }
 h3{ margin:0 0 8px }
-.table{ border:1px solid var(--line); border-radius:12px; overflow:hidden; background:#fff; box-shadow:0 4px 14px rgba(15,23,42,.06) }
-.thead,.row{
-  display:grid;
-  grid-template-columns: 60px 100px 1.2fr 1.2fr 1fr 80px;
-  gap:8px;
-  align-items:center;
+
+/* Ajustes para tabla semántica */
+.table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  overflow: hidden;
+  background: #fff;
+  box-shadow: 0 4px 14px rgba(15,23,42,.06);
 }
-.thead{ padding:10px 12px; background:#f8fafc; color:#334155; font-weight:600; border-bottom:1px solid var(--line) }
-.row{ padding:10px 12px; border-top:1px solid var(--line) }
-.mono{ font-family: ui-monospace, Menlo, Monaco, Consolas, "Liberation Mono", monospace }
-.ell{ overflow:hidden; text-overflow:ellipsis; white-space:nowrap }
-.right{ text-align:right }
-.btn{ background:#fff; border:1px solid var(--line); color:#0f172a; padding:8px 10px; border-radius:10px; cursor:pointer }
-.chip{ padding:4px 10px; border-radius:999px; border:1px solid var(--line) }
-.chip[data-s="1"]{ color:#8a5200; background:#fff7e6 }
-.chip[data-s="2"]{ color:#1e40af; background:#eef2ff }
-.chip[data-s="3"]{ color:#065f46; background:#e8f7ea }
-.empty{ text-align:center; color:var(--muted); padding:18px }
+.table thead {
+  background: #f8fafc;
+}
+.table th, .table td {
+  padding: 10px 12px;
+  text-align: left;
+  vertical-align: middle;
+  border-bottom: 1px solid var(--line);
+}
+.table th {
+  color: #334155;
+  font-weight: 600;
+  font-size: 16px;
+  background: #f8fafc;
+}
+.table tr:last-child td {
+  border-bottom: none;
+}
+.mono {
+  font-family: ui-monospace, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+}
+.ell {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 120px;
+}
+.right {
+  text-align: right;
+}
+.btn {
+  background: #fff;
+  border: 1px solid var(--line);
+  color: #0f172a;
+  padding: 8px 16px;
+  border-radius: 10px;
+  cursor: pointer;
+  font-size: 15px;
+  transition: background 0.15s;
+}
+.btn:hover {
+  background: #f1f5f9;
+}
+.chip {
+  padding: 4px 14px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  font-size: 15px;
+  font-weight: 500;
+  display: inline-block;
+}
+.chip[data-s="1"] { color: #8a5200; background: #fff7e6; }
+.chip[data-s="2"] { color: #1e40af; background: #eef2ff; }
+.chip[data-s="3"] { color: #065f46; background: #e8f7ea; }
+.empty {
+  text-align: center;
+  color: var(--muted);
+  padding: 18px;
+}
 
 /* Overlay de carga */
 .loading-overlay {
