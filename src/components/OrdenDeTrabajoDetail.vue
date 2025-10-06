@@ -16,15 +16,6 @@
           <dt>Técnico</dt><dd>{{ data_ot.tecnico || '—' }}</dd>
           <dt>Descripción</dt><dd>{{ data_ot.descripcion || '—' }}</dd>
         </dl>
-        <div class="rowbtns">
-          <select v-model="estado" class="input">
-            <option :value="null">Seleccione Estado...</option>
-            <option v-for="est in listEstadosOt" :key="est.id" :value="est.id">
-              {{ est.id }} - {{ est.nombre }}
-            </option>
-          </select>
-          <button class="btn" @click="actualizarEstadoOt">Actualizar estado</button>
-        </div>
       </div>
 
       <div class="card">
@@ -32,6 +23,12 @@
         <form class="form" @submit.prevent="agregarActividad">
           <input v-model="logText" class="input" placeholder="¿Qué se realizó?" />
           <input v-model="logTec" class="input" placeholder="Técnico (si aplica)" />
+          <select v-model="estado" class="input">
+            <option :value="null">Seleccione Estado...</option>
+            <option v-for="est in listEstadosOt" :key="est.id" :value="est.id">
+              {{ est.id }} - {{ est.nombre }}
+            </option>
+          </select>
           <button class="btn">Añadir</button>
         </form>
 
@@ -124,34 +121,6 @@ const consultarEstadosOt = async () => {
     }
 }
 
-// Funcion para consultar los estados de las ot
-const actualizarEstadoOt = async () => {
-  try {
-        const response = await axios.post(
-            `${apiUrl}/actualizar_estado_ot`, 
-            { 
-              estado: estado.value,
-              ot_id: props.id
-            },
-            {
-                headers: {
-                    Accept: "application/json",
-                }
-            }
-        );
-
-        if (response.status === 200) {
-          alert(response.data.message);
-          consultarOt();
-          estado.value = null;
-        }
-    } catch (error) {
-        console.error(error);
-        errorMsg.value = error.response.data.message;
-        alert(errorMsg.value);
-    }
-}
-
 // Funcion para agregar una actividad a la ot
 const agregarActividad = async () => {
 
@@ -162,6 +131,7 @@ const agregarActividad = async () => {
               ot_id: props.id,
               descripcion: logText.value,
               tecnico: logTec.value,
+              estado: estado.value,
             },
             {
                 headers: {
@@ -213,7 +183,7 @@ onMounted(() => {
 .rowbtns{ margin-top:10px; display:flex; gap:8px; flex-wrap:wrap }
 .form{ display:grid; grid-template-columns: 2fr 1fr auto; gap:10px; margin-bottom:8px }
 .input{ background:#fff; border:1px solid var(--line); color:#0f172a; padding:10px 12px; border-radius:10px }
-.btn{ background:#fff; border:1px solid var(--line); color:#0f172a; padding:10px 12px; border-radius:10px; cursor:pointer }
+.btn{ background:#fff; border:1px solid var(--line); color:#0f172a; padding:10px 12px; border-radius:10px; cursor:pointer; width: 100px; }
 
 .logs{ list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:8px }
 .logs li{ border-top:1px solid var(--line); padding-top:8px }
