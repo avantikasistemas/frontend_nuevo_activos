@@ -148,6 +148,8 @@ import { ref, onMounted, watch } from 'vue';
 import axios from 'axios';
 import apiUrl from "../../config.js";
 
+defineOptions({ name: 'MantenimientosView' });
+
 const endpoint = ref('');
 const grupo = ref('');
 const listGrupos = ref([]);

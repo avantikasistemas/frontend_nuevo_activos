@@ -25,7 +25,11 @@
         </div>
       </header>
       <section class="content" :class="{compact}">
-        <RouterView />
+        <RouterView v-slot="{ Component }">
+          <keep-alive :include="['MantenimientosView']">
+            <component :is="Component" />
+          </keep-alive>
+        </RouterView>
       </section>
     </main>
   </div>
