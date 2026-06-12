@@ -36,7 +36,7 @@
         <h4>Historial</h4>
         <ul class="logs">
           <li v-for="l in listActividades" :key="l.id">
-            <div class="when">{{ (l.created_at) }}</div>
+            <div class="when">{{ l.created_at ? l.created_at.slice(0, 10) : '—' }}</div>
             <div class="what">{{ l.descripcion }}</div>
             <div class="who muted">{{ l.tecnico || '—' }}</div>
           </li>
